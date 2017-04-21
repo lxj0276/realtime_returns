@@ -1,3 +1,4 @@
+import os
 import time
 import datetime as dt
 import numpy as np
@@ -7,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdate
 import matplotlib.ticker as mtick
 import matplotlib as mpl
-
+from src.help_functions import *
 
 
 class portfolio:
@@ -41,19 +42,23 @@ class portfolio:
         w.start()
         tot=list(portfolio.UNDL_POOL['total'])
         underlyings=''.join(tot)
-        underlyings=underlyings.replace("H","H,")
-        underlyings=underlyings.replace("Z","Z,")
+        underlyings=underlyings.replace("SH","SH,")
+        underlyings=underlyings.replace("SZ","SZ,")
+        underlyings=underlyings.replace("CFE","CFE,")
 
         w.wsq(underlyings,portfolio.POOL_COLUMNS,func=portfolio.undlpool_callback)   # 订阅POOL里面所有的undelryings
 
         today=dt.date.today()
         start=dt.datetime(year=today.year, month=today.month,day=today.day,hour= 9,minute=30,second=0)
-        end=dt.datetime(year=today.year, month=today.month,day=today.day,hour= 15,minute=0,second=0)
+        end=dt.datetime(year=today.year, month=today.month,day=today.day,hour= 15,minute=45,second=0)
 
 
         # 画图配置
+        shape=calc_shape(len(portfolio.REGI_OBJ))
         #mpl.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
-        fig=plt.figure()
+        plt.ion()
+        fig=plt.figure(figsize=(20,20))
+        fig.canvas.set_window_title(str(today))
         #plt.xticks(pd.date_range(start,end,freq='H'))#时间间隔
 
         x = {}
@@ -66,12 +71,12 @@ class portfolio:
                 obj.update_object()
 
             xkeys=x.keys()
-            count=0
+            count=1
             for obj in portfolio.PLOT_OBJ:
                 if obj not in xkeys:
-                    x[obj]=[]
-                    y[obj]=[]
-                    ax=fig.add_subplot('12'+str(count+1))
+                    x[obj]=[dt.datetime.now()]
+                    y[obj]=[(obj.addvalue['floated']+obj.addvalue['fixed'])/obj.pofvalue]
+                    ax=fig.add_subplot(str(shape[0])+str(shape[1])+str(count))
                     ax.xaxis.set_major_formatter(mdate.DateFormatter('%H:%M'))#设置时间标签显示格式 '%Y-%m-%d %H:%M:%S'
                     ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.4f%%'))
                     ax.set_title(obj.pofname)
@@ -81,7 +86,7 @@ class portfolio:
                 x[obj].append(dt.datetime.now())
                 axes[obj].set_xlim(x[obj][0],x[obj][-1])
                 axes[obj].plot(x[obj],y[obj],linewidth=1,color='r')
-                plt.pause(0.1)
+                plt.pause(0.05)
                 count+=1
 
         print('temp: update finished')
@@ -134,6 +139,7 @@ class portfolio:
         self.noposition = not np.any(self.lasttrdstat[:,0])
         self.addvalue = {'fixed':0 ,'floated':0 }  # 若在当天出场则为fixed收益，否则为floated
         self.holdlist = {'T1':{},'T0':{}}     # holdlist数据结构 ： { 'T1':{}, 'T0':{}} , T+0/T+1 部分分别存储一个基于品种的、类似lst的dict
+        self.trdlist = {}
 
         if not self.noposition: # 交易开始前就有持仓的情况下，加入holdlist, 当天开始时无持仓则不必
             self.holdlist['T1'] = self.read_holdlist()
@@ -157,10 +163,10 @@ class portfolio:
     def flush_trdstat(self):
         # 根据持仓状态变更，更新 holdlist以及资产池，并更新 lasttrdstat
         currtrdstat = self.get_trdstat()
-        statchg = currtrdstat[:,0]-self.lasttrdstat[:,0]
+        statschg = currtrdstat[:,0]-self.lasttrdstat[:,0]
         updtstat = False
         statchg = 0
-        if np.any(statchg):   # 持仓有变动
+        if np.any(statschg):   # 持仓有变动
             if not np.any(currtrdstat[:,0]): # 从有持仓变为空仓
                 trdlst = self.read_trdlist()
                 if trdlst['out']:
@@ -190,12 +196,29 @@ class portfolio:
 
 
     def read_trdlist(self):  # 返回 买入 卖出两个方向的单子
-        trdlist={}
-        trdlist['in']={}
-        trdlist['out']={}
-        ###################################################
+        trdlist = {}
+        trdlist['in'] = {}
+        trdlist['out'] = {}
+        for k in self.trdlstdir.keys():
+            files=os.listdir(self.trdlstdir[k])
+            newfiles = set(files)-set( self.trdlist[k] if self.trdlist[k] else [] )
+            templist = pd.DataFrame()
+            for f in newfiles:
+                templist = templist.append( pd.read_csv(os.path.join(self.trdlstdir[k],f),encoding='gb2312',names=['code','name','num','prc','val','side']) , ignore_index=True)
+                self.trdlist[k].append(f)
+            tempin = templist[templist['side'] == 'in']
+            tempout = templist[templist['side'] == 'out']
 
-        ###################################################
+            groupedin=tempin.groupby('code').sum()
+            groupedin['code'] = groupedin.index
+            groupedin['prc'] = groupedin['val'].values/groupedin['num'].values
+
+            groupedout=tempout.groupby('code').sum()
+            groupedout['code'] = groupedout.index
+            groupedout['prc'] = groupedout['val'].values/groupedout['num'].values
+
+            trdlist['in'][k] = groupedin
+            trdlist['out'][k] = groupedout
         return trdlist
 
 
@@ -232,6 +255,8 @@ class portfolio:
     def update_addvalue(self):
         # 只计算尚未卖出的收益，即floated 收益
         # 当日卖出的部分属于 fixed 收益，在 update_holdlist 中计算
+        if not self.holdlist:  # 调用时没有持仓
+            return
         newinfo = pd.DataFrame( portfolio.UNDL_POOL_INFO, index = portfolio.POOL_COLUMNS.split(',')  ).T
         addval = 0
         for tp in self.holdlist.keys():
@@ -269,15 +294,23 @@ if __name__=='__main__':
     trdlstdir1=''
     cwstatusdir1=r'..\cwstate1.txt'
 
-    t1=portfolio(pofname1,pofvalue1,hldlstdir1,trdlstdir1,cwstatusdir1)
+    # t1=portfolio(pofname1,pofvalue1,hldlstdir1,trdlstdir1,cwstatusdir1)
+    #
+    # pofname2='test2'
+    # pofvalue2=820386
+    # hldlstdir2={'stocks' : '..\BQ1ICLong20170421.csv'}
+    # trdlstdir2=''
+    # cwstatusdir2=r'..\cwstate2.txt'
+    #
+    # t2=portfolio(pofname2,pofvalue2,hldlstdir2,trdlstdir2,cwstatusdir2)
 
-    pofname2='test2'
-    pofvalue2=820386
-    hldlstdir2={'stocks' : '..\BQ1ICLong20170421.csv'}
-    trdlstdir2=''
-    cwstatusdir2=r'..\cwstate2.txt'
+    pofname3='test3'
+    pofvalue3=820386
+    hldlstdir3={'stocks' : '..\BQ1ICLong20170421.csv'}
+    trdlstdir3={'stocks' : r'E:\realtime_monitors\realtime_returns\testfiles'}
+    cwstatusdir3=r'..\cwstate3.txt'
 
-    t2=portfolio(pofname2,pofvalue2,hldlstdir2,trdlstdir2,cwstatusdir2)
+    t3=portfolio(pofname3,pofvalue3,hldlstdir3,trdlstdir3,cwstatusdir3)
 
     portfolio.update_undlpool()
     w.cancelRequest(0)
