@@ -50,7 +50,7 @@ class portfolio:
 
         today=dt.date.today()
         start=dt.datetime(year=today.year, month=today.month,day=today.day,hour= 9,minute=30,second=0)
-        end=dt.datetime(year=today.year, month=today.month,day=today.day,hour= 15,minute=45,second=0)
+        end=dt.datetime(year=today.year, month=today.month,day=today.day,hour= 18,minute=00,second=0)
 
 
         # 画图配置
@@ -130,6 +130,7 @@ class portfolio:
 
 
     def __init__(self,pofname,pofvalue,hldlstdir,trdlstdir,cwstatusdir):
+        self.starttime = time.time()
         self.pofname = pofname
         self.pofvalue = pofvalue                 # 产品前一日总资产
         self.hldlstdir = hldlstdir               # 基于标的的字典 ex. {'stocks':dir1,futures:dir2}
@@ -147,7 +148,7 @@ class portfolio:
                 portfolio.add_pool(self.holdlist['T1'],self.pofname)
                 portfolio.PLOT_OBJ.append(self)
         else:
-            self.holdlist = None
+            self.holdlist = {}
         portfolio.REGI_OBJ.append(self)
 
 
@@ -183,13 +184,24 @@ class portfolio:
                     self.noposition = False
                     updtstat = True
                     statchg = 1
-            else:  # 有持仓，且持仓变动  # need more contents ,pause for now
+                    self.starttime = time.time()
+            else:  # 有持仓，且持仓变动  #####　逻辑有缺失　！没有考虑
                 trdlst=self.read_trdlist()
+                print(trdlst)
                 if trdlst['in'] and trdlst['out']:
                     self.update_holdlist(trdlst['in'],'T0')
                     self.update_holdlist(trdlst['out'],'T1')
                     portfolio.add_pool(trdlst['in'],self.pofname)
                     updtstat = True
+                    self.starttime = time.time()
+
+            w.start()
+            tot=list(portfolio.UNDL_POOL['total'])
+            underlyings=''.join(tot)
+            underlyings=underlyings.replace("SH","SH,")
+            underlyings=underlyings.replace("SZ","SZ,")
+            underlyings=underlyings.replace("CFE","CFE,")
+            w.wsq(underlyings,portfolio.POOL_COLUMNS,func=portfolio.undlpool_callback)
         if updtstat:
             self.lasttrdstat=currtrdstat
         return statchg
@@ -201,24 +213,27 @@ class portfolio:
         trdlist['out'] = {}
         for k in self.trdlstdir.keys():
             files=os.listdir(self.trdlstdir[k])
-            newfiles = set(files)-set( self.trdlist[k] if self.trdlist[k] else [] )
-            templist = pd.DataFrame()
-            for f in newfiles:
-                templist = templist.append( pd.read_csv(os.path.join(self.trdlstdir[k],f),encoding='gb2312',names=['code','name','num','prc','val','side']) , ignore_index=True)
-                self.trdlist[k].append(f)
-            tempin = templist[templist['side'] == 'in']
-            tempout = templist[templist['side'] == 'out']
+            if k not in self.trdlist.keys():
+                self.trdlist[k] = []
+            newfiles = set(files)-set( self.trdlist[k])
+            if newfiles:
+                templist = pd.DataFrame()
+                for f in newfiles:
+                    templist = templist.append( pd.read_csv(os.path.join(self.trdlstdir[k],f),encoding='gb2312',names=['code','name','num','prc','val','side']) , ignore_index=True)
+                    self.trdlist[k].append(f)
+                tempin = templist[templist['side'] == 'in']
+                tempout = templist[templist['side'] == 'out']
 
-            groupedin=tempin.groupby('code').sum()
-            groupedin['code'] = groupedin.index
-            groupedin['prc'] = groupedin['val'].values/groupedin['num'].values
+                groupedin=tempin.groupby('code').sum()
+                groupedin['code'] = groupedin.index
+                groupedin['prc'] = groupedin['val'].values/groupedin['num'].values
 
-            groupedout=tempout.groupby('code').sum()
-            groupedout['code'] = groupedout.index
-            groupedout['prc'] = groupedout['val'].values/groupedout['num'].values
+                groupedout=tempout.groupby('code').sum()
+                groupedout['code'] = groupedout.index
+                groupedout['prc'] = groupedout['val'].values/groupedout['num'].values
 
-            trdlist['in'][k] = groupedin
-            trdlist['out'][k] = groupedout
+                trdlist['in'][k] = groupedin
+                trdlist['out'][k] = groupedout
         return trdlist
 
 
@@ -276,13 +291,13 @@ class portfolio:
 
 
     def update_object(self):  # 定时扫描交易状态 trdlistdir 并更新 holdlist
-        time.sleep(portfolio.FLUSH_CWSTAT)
         statchg = self.flush_trdstat()
         if statchg == 1:
             self.startplot()
         elif statchg == -1:
             self.stopplot()
-        self.update_addvalue()
+        if time.time() - self.starttime > 1:  # 自上次变更 POOL后，留点时间进行订阅数据送达 不是很必要
+            self.update_addvalue()
 
 
 
@@ -294,15 +309,15 @@ if __name__=='__main__':
     trdlstdir1=''
     cwstatusdir1=r'..\cwstate1.txt'
 
-    # t1=portfolio(pofname1,pofvalue1,hldlstdir1,trdlstdir1,cwstatusdir1)
-    #
-    # pofname2='test2'
-    # pofvalue2=820386
-    # hldlstdir2={'stocks' : '..\BQ1ICLong20170421.csv'}
-    # trdlstdir2=''
-    # cwstatusdir2=r'..\cwstate2.txt'
-    #
-    # t2=portfolio(pofname2,pofvalue2,hldlstdir2,trdlstdir2,cwstatusdir2)
+    t1=portfolio(pofname1,pofvalue1,hldlstdir1,trdlstdir1,cwstatusdir1)
+
+    pofname2='test2'
+    pofvalue2=820386
+    hldlstdir2={'stocks' : '..\BQ1ICLong20170421.csv'}
+    trdlstdir2=''
+    cwstatusdir2=r'..\cwstate2.txt'
+
+    t2=portfolio(pofname2,pofvalue2,hldlstdir2,trdlstdir2,cwstatusdir2)
 
     pofname3='test3'
     pofvalue3=820386
