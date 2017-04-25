@@ -58,7 +58,7 @@ class portfolio:
 
         # 画图配置
         shape=calc_shape(len(portfolio.REGI_OBJ))
-        #mpl.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
+        mpl.rcParams['font.sans-serif'] = ['SimHei'] #用来正常显示中文标签
         plt.ion()
         fig=plt.figure(figsize=(20,20))
         fig.canvas.set_window_title(str(today))
@@ -92,6 +92,7 @@ class portfolio:
                 else:
                     y[obj].append(y[obj][-1])
                 x[obj].append(dt.datetime.now())
+                axes[obj].legend(('return : %f' % y[obj][-1] ,))
                 axes[obj].set_xlim(x[obj][0],x[obj][-1])
                 axes[obj].plot(x[obj],y[obj],linewidth=1,color='r')
                 plt.pause(0.05)
@@ -328,39 +329,11 @@ class portfolio:
             self.startplot()
         elif statchg == -1:
             self.stopplot()
-        #if time.time() - self.starttime > 1:  # 自上次变更 POOL后，留点时间进行订阅数据送达 不是很必要
-        self.update_addvalue()
+        if portfolio.UNDL_POOL_INFO:
+            self.update_addvalue()
 
 
 
-
-if __name__=='__main__':
-    pofname1='test1'
-    pofvalue1=820386
-    hldlstdir1={'stocks' : '..\BQ1ICLong20170421.csv'}
-    trdlstdir1={'stocks' : r'E:\realtime_monitors\realtime_returns\testfiles'}
-    cwstatusdir1=r'..\cwstate1.txt'
-
-    t1=portfolio(pofname1,pofvalue1,hldlstdir1,trdlstdir1,cwstatusdir1)
-
-    pofname2='test2'
-    pofvalue2=820386
-    hldlstdir2={'stocks' : '..\BQ1ICLong20170421.csv'}
-    trdlstdir2={'stocks' : r'E:\realtime_monitors\realtime_returns\testfiles'}
-    cwstatusdir2=r'..\cwstate2.txt'
-
-    t2=portfolio(pofname2,pofvalue2,hldlstdir2,trdlstdir2,cwstatusdir2)
-
-    pofname3='test3'
-    pofvalue3=820386
-    hldlstdir3={'stocks' : '..\BQ1ICLong20170421.csv'}
-    trdlstdir3={'stocks' : r'E:\realtime_monitors\realtime_returns\testfiles'}
-    cwstatusdir3=r'..\cwstate3.txt'
-
-    t3=portfolio(pofname3,pofvalue3,hldlstdir3,trdlstdir3,cwstatusdir3)
-
-    portfolio.update_undlpool()
-    w.cancelRequest(0)
 
 
 
