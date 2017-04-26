@@ -3,12 +3,14 @@ import numpy as np
 import pandas as pd
 
 def holdlist_format():
-    # 做多 数量为正、金额为正， 做空为负、金额为负， 价格衡正
     # 过滤停牌股
+    # 返回项 : windcode, name, num, prc,val
     pass
 
 
 def trdlist_format():
+    # 做多 数量为正、金额为正， 做空为负、金额为负， 价格恒正, 交易成本恒为负
+    # 返回项 : windcode, name, num, prc,val,transaction_cost, inout
     pass
 
 

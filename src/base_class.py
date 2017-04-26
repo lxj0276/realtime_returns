@@ -80,23 +80,23 @@ class portfolio:
                 obj = plobj[0]
                 ploting = plobj[1]
                 if obj not in xkeys:
-                    x[obj]=[dt.datetime.now()]
-                    y[obj]=[(obj.addvalue['floated']+obj.addvalue['fixed'])/obj.pofvalue]
+                    x[obj] = [dt.datetime.now()]
+                    y[obj] = [(obj.addvalue['floated']+obj.addvalue['fixed'])/obj.pofvalue]
                     ax=fig.add_subplot(str(shape[0])+str(shape[1])+str(count))
                     ax.xaxis.set_major_formatter(mdate.DateFormatter('%H:%M'))#设置时间标签显示格式 '%Y-%m-%d %H:%M:%S'
                     ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.4f%%'))
                     ax.set_title(obj.pofname)
-                    axes[obj]=ax
+                    axes[obj] = ax
                 if ploting:
-                    y[obj].append((obj.addvalue['floated']+obj.addvalue['fixed'])/obj.pofvalue)
+                    y[obj].append((obj.addvalue['floated']+obj.addvalue['fixed'])/obj.pofvalue * 100)
                 else:
                     y[obj].append(y[obj][-1])
                 x[obj].append(dt.datetime.now())
-                axes[obj].legend(('return : %f' % y[obj][-1] ,))
+                axes[obj].legend(('return : %.4f%%' % y[obj][-1] ,))
                 axes[obj].set_xlim(x[obj][0],x[obj][-1])
-                axes[obj].plot(x[obj],y[obj],linewidth=1,color='r')
+                axes[obj].plot(x[obj][1:],y[obj][1:],linewidth=1,color='r')
                 plt.pause(0.05)
-                count+=1
+                count += 1
 
         print('plot finished')
         ######   保存图像 ######
@@ -187,7 +187,7 @@ class portfolio:
             trdlst = self.read_trdlist()
             if not np.any(currtrdstat[:,0]): # 从有持仓变为空仓
                 if trdlst['out']:
-                    #self.update_holdlist(trdlst['out'],'T1')  # 当天只能卖出T+1的股票
+                    self.update_holdlist(trdlst['out'],'T1')  # 当天只能卖出T+1的股票
                     self.holdlist = {'T0':{},'T1':{}}
                     portfolio.pop_pool(self.pofname,trdlst['out'])
                     self.noposition = True
@@ -217,7 +217,6 @@ class portfolio:
                         self.update_holdlist(trdlst['out'],'T1')
                         portfolio.add_pool(trdlst['in'],self.pofname)
                         updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
-
             w.start()
             tot=list(portfolio.UNDL_POOL['total'])
             underlyings=''.join(tot)
@@ -269,9 +268,12 @@ class portfolio:
         return holdlist
 
 
-    def update_holdlist(self,lst,type):  # 做多数量为正，做空数量为负 lst应为带有标的作为key的dict
+    def update_holdlist(self,lst,type):
+        # 只有在有交易的时候才调用此函数 更新holdlist , 对象初始化时不必调用
+        # 做多数量为正，做空数量为负 lst应为带有标的作为key的dict
         if type not in ('T0','T1'):
             raise Exception('Need to specify the type of holdlist to be updated!')
+        ts = 0  # 交易成本
         if type=='T1':     # 只在出场的时候更新T+1
             for k in lst.keys():
                 codes = lst[k]['code']
@@ -280,6 +282,7 @@ class portfolio:
                 addsgl = (self.holdlist['T1'][k].loc[codes,'prc'].values-lst[k]['prc'].values)*num.values
                 self.addvalue['fixed'] += np.sum( addsgl )
                 self.holdlist['T1'][k].loc[codes,'val'] = self.holdlist['T1'][k].loc[codes,'prc'] * self.holdlist['T1'][k].loc[codes,'num']
+                ts += lst[k]['tscost'].sum()
         else:      # 只在当日入场时更新 T+0
             if len(self.holdlist['T0'])==0:
                 self.holdlist['T0'] = lst
@@ -290,6 +293,8 @@ class portfolio:
                     grouped['code'] = grouped.index
                     grouped['prc'] = grouped['val'].values/grouped['num'].values
                     self.holdlist['T0'][k] = grouped
+                    ts += lst[k]['tscost'].sum()
+        self.addvalue['T1'] += ts
 
     
     def update_addvalue(self):
@@ -331,6 +336,7 @@ class portfolio:
             self.stopplot()
         if portfolio.UNDL_POOL_INFO:
             self.update_addvalue()
+
 
 
 
