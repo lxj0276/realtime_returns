@@ -54,7 +54,7 @@ def request_func(type,params):
         pass
 
 
-def simugen():
+def simugen(type = 'Brownian'):
     global UNDL_POOL
     global UNDL_POOL_INFO
     global POOL_COLUMNS
@@ -66,7 +66,12 @@ def simugen():
     while True:
         for undl in holdings:
             if undl not in UNDL_POOL_INFO:
-                UNDL_POOL_INFO[undl] = np.random.randn(colnum)*step
+                UNDL_POOL_INFO[undl] = np.random.rand(colnum)
             else:
-                UNDL_POOL_INFO[undl] += np.random.randn(colnum)*step
+                if type == 'Geometric':
+                    trend = np.random.randn(colnum)
+                    sigma = np.random.rand(colnum)
+                    UNDL_POOL_INFO[undl] *= np.exp(trend*step + sigma*np.sqrt(step)*np.random.randn(colnum))
+                else:
+                    UNDL_POOL_INFO[undl] += np.sqrt(step) * np.random.randn(colnum)
         time.sleep(0.5)

@@ -97,7 +97,7 @@ class portfolio:
                 axes[obj].legend(('return : %.4f%%' % y[obj][-1] ,))
                 axes[obj].set_xlim(x[obj][0],x[obj][-1])
                 axes[obj].plot(x[obj][1:],y[obj][1:],linewidth=1,color='r')
-                plt.pause(0.05)
+                plt.pause(0.01)
                 count += 1
 
         print('plot finished')
