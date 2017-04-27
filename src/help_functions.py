@@ -1,6 +1,6 @@
 import math
 import numpy as np
-import pandas as pd
+
 
 def holdlist_format():
     # 过滤停牌股
@@ -39,11 +39,3 @@ def calc_shape(num):
         else:
             shape = (lower,lower)
     return shape
-
-
-if __name__ == '__main__':
-    t = np.array([[1,0,'c'],[0,0,'d'],[-1,0,'e'],[-1,0,'f']])
-    p = pd.DataFrame(t,columns=['a','b','cd'],index=['c','d','e','f'])
-    print(p)
-    p.loc[p['cd'],'a']+= t[:,1]
-    print(p)

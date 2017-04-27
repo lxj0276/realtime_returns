@@ -24,6 +24,7 @@ class portfolio:
     PLOT_NUM = 0
     REGED_NUM = 0
 
+    FIGDIR = r'.'
 
 
     @staticmethod
@@ -53,8 +54,7 @@ class portfolio:
 
         today=dt.date.today()
         start=dt.datetime(year=today.year, month=today.month,day=today.day,hour= 9,minute=30,second=0)
-        end=dt.datetime(year=today.year, month=today.month,day=today.day,hour= 18,minute=00,second=0)
-
+        end=dt.datetime(year=today.year, month=today.month,day=today.day,hour= 18,minute=45,second=0)
 
         # 画图配置
         shape=calc_shape(len(portfolio.REGI_OBJ))
@@ -62,24 +62,21 @@ class portfolio:
         plt.ion()
         fig=plt.figure(figsize=(20,20))
         fig.canvas.set_window_title(str(today))
-        #plt.xticks(pd.date_range(start,end,freq='H'))#时间间隔
 
         x = {}
         y = {}
         axes = {}
-
         while( end>= dt.datetime.now() >= start):
             time.sleep(portfolio.FLUSH_CWSTAT)
             for obj in portfolio.REGI_OBJ:
                 obj.update_object()
 
-            xkeys=x.keys()
             count=1
-            for id in sorted( portfolio.PLOT_OBJ.keys() ):    #  portfolio.PLOT_OBJ 是以增加过的画图 obj 的 regid
+            for id in sorted( portfolio.PLOT_OBJ ):    #  portfolio.PLOT_OBJ 是以增加过的画图 obj 的 regid
                 plobj = portfolio.PLOT_OBJ[id]
                 obj = plobj[0]
                 ploting = plobj[1]
-                if obj not in xkeys:
+                if obj not in x:
                     x[obj] = [dt.datetime.now()]
                     y[obj] = [(obj.addvalue['floated']+obj.addvalue['fixed'])/obj.pofvalue]
                     ax=fig.add_subplot(str(shape[0])+str(shape[1])+str(count))
@@ -99,25 +96,27 @@ class portfolio:
                 count += 1
 
         print('plot finished')
-        ######   保存图像 ######
+        plt.savefig(os.path.join(portfolio.FIGDIR,str(today)+'.png'))
 
 
     @classmethod
     def add_pool(cls,lst,pofname):
         # 把list加入资产池
         # lst 结构为{交易品种：对应数据表} 如{stocks:pd.dtfm, futures: pd.dtfm}
-        poolkeys=portfolio.UNDL_POOL.keys()
-        if pofname not in poolkeys:  # 如果pool中没有该产品则新创建
+        if pofname not in portfolio.UNDL_POOL:  # 如果pool中没有该产品则新创建
             tempdict = {}
-            for k in lst.keys():
+            for k in lst:
                 toadd = set(lst[k]['code'])
                 tempdict[k] = toadd
                 portfolio.UNDL_POOL['total'] |= toadd
             portfolio.UNDL_POOL[pofname]=tempdict
         else:
-            for k in lst.keys():
+            for k in lst:
                 toadd = set(lst[k]['code'])
-                portfolio.UNDL_POOL[pofname][k] |= toadd
+                if k not in portfolio.UNDL_POOL[pofname]:
+                    portfolio.UNDL_POOL[pofname][k] = toadd
+                else:
+                    portfolio.UNDL_POOL[pofname][k] |= toadd
                 portfolio.UNDL_POOL['total'] |= toadd
 
 
@@ -125,17 +124,16 @@ class portfolio:
     def pop_pool(cls,pofname,poplst):
         # 从 pool 中删除
         # 根据特定 portfolio pop
-        poolkeys=portfolio.UNDL_POOL.keys()
-        if pofname in poolkeys:
+        if pofname in portfolio.UNDL_POOL:
             #holdonly = portfolio.UNDL_POOL[pofname]  # 提取该组合特有的股票删除，不能删除 total 中与其他组合共有的股票
             holdonly = {}
-            for k in poplst.keys():
+            for k in poplst:
                 holdonly[k]=set(poplst[k]['code'].values)
-            for k in poolkeys:
+            for k in portfolio.UNDL_POOL:
                 if k not in ( 'total', pofname):
-                    for undl in poplst.keys():
+                    for undl in poplst:
                         holdonly[undl] -= portfolio.UNDL_POOL[k][undl]
-            for und in holdonly.keys():      # 删除 total 中对应部分
+            for und in holdonly:      # 删除 total 中对应部分
                 portfolio.UNDL_POOL['total'] -= holdonly[und]
             del portfolio.UNDL_POOL[pofname]  # 删除对应产品, 可能仍有部分碎股会存在
 
@@ -164,7 +162,6 @@ class portfolio:
                 portfolio.PLOT_NUM += 1
                 self.plotid = portfolio.PLOT_NUM
                 portfolio.PLOT_OBJ[self.plotid] = [self,True]
-
 
 
     def get_trdstat(self):
@@ -217,6 +214,7 @@ class portfolio:
                         self.update_holdlist(trdlst['out'],'T1')
                         portfolio.add_pool(trdlst['in'],self.pofname)
                         updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
+        if updtstat:  # 持仓更新成功，单子已经到达录入成功
             w.start()
             tot=list(portfolio.UNDL_POOL['total'])
             underlyings=''.join(tot)
@@ -224,7 +222,6 @@ class portfolio:
             underlyings=underlyings.replace("SZ","SZ,")
             underlyings=underlyings.replace("CFE","CFE,")
             w.wsq(underlyings,portfolio.POOL_COLUMNS,func=portfolio.undlpool_callback)  # 有持仓更新的话需要重新订阅
-        if updtstat:
             self.lasttrdstat=currtrdstat
         return statchg
 
@@ -233,15 +230,15 @@ class portfolio:
         trdlist = {}
         trdlist['in'] = {}
         trdlist['out'] = {}
-        for k in self.trdlstdir.keys():
-            files=os.listdir(self.trdlstdir[k])
-            if k not in self.trdlist.keys():
+        for k in self.trdlstdir:
+            if k not in self.trdlist:
                 self.trdlist[k] = []
+            files=os.listdir(self.trdlstdir[k])
             newfiles = set(files)-set( self.trdlist[k])
             if newfiles:
                 templist = pd.DataFrame()
                 for f in newfiles:
-                    templist = templist.append( pd.read_csv(os.path.join(self.trdlstdir[k],f),encoding='gb2312',names=['code','name','num','prc','val','side']) , ignore_index=True)
+                    templist = templist.append( pd.read_csv(os.path.join(self.trdlstdir[k],f),encoding='gb2312',names=['code','name','num','prc','val','tscost','side']) , ignore_index=True)
                     self.trdlist[k].append(f)    # 把已经读取过的 file 加入到记录
                 tempin = templist[templist['side'] == 'in']
                 tempout = templist[templist['side'] == 'out']
@@ -262,7 +259,7 @@ class portfolio:
     def read_holdlist(self):
         # 返回字典结构,字典的key是各个不同品种的标的，如stocks\futures\options etc  注意 ： 此处不涉及 T0 T1
         holdlist={}
-        for k in self.hldlstdir.keys():
+        for k in self.hldlstdir:
             holdlist[k] = pd.read_csv(self.hldlstdir[k],encoding='gb2312',names=['code','name','num','prc','val'])
             holdlist[k].index = holdlist[k]['code'].tolist()
         return holdlist
@@ -273,9 +270,11 @@ class portfolio:
         # 做多数量为正，做空数量为负 lst应为带有标的作为key的dict
         if type not in ('T0','T1'):
             raise Exception('Need to specify the type of holdlist to be updated!')
+        if len(lst) == 0:
+            return
         ts = 0  # 交易成本
         if type=='T1':     # 只在出场的时候更新T+1
-            for k in lst.keys():
+            for k in lst:
                 codes = lst[k]['code']
                 num = lst[k]['num']
                 self.holdlist['T1'][k].loc[codes,'num'] += num
@@ -287,14 +286,17 @@ class portfolio:
             if len(self.holdlist['T0'])==0:
                 self.holdlist['T0'] = lst
             else:
-                for k in lst.keys():
-                    temp=pd.concat([self.holdlist['T0'][k],lst[k]],ignore_index=True)   # type:pd.DataFrame
-                    grouped=temp.groupby('code').sum()
-                    grouped['code'] = grouped.index
-                    grouped['prc'] = grouped['val'].values/grouped['num'].values
-                    self.holdlist['T0'][k] = grouped
+                for k in lst:
+                    if k in self.holdlist['T0']:
+                        temp=pd.concat([self.holdlist['T0'][k],lst[k]],ignore_index=True)   # type:pd.DataFrame
+                        grouped = temp.groupby('code').sum()
+                        grouped['code'] = grouped.index
+                        grouped['prc'] = grouped['val'].values / grouped['num'].values
+                        self.holdlist['T0'][k] = grouped
+                    else:
+                        self.holdlist['T0'][k] = lst[k]
                     ts += lst[k]['tscost'].sum()
-        self.addvalue['T1'] += ts
+        self.addvalue['fixed'] += ts
 
     
     def update_addvalue(self):
@@ -302,20 +304,23 @@ class portfolio:
         # 当日卖出的部分属于 fixed 收益，在 update_holdlist 中计算
         if len(self.holdlist['T0'])==0 and len(self.holdlist['T1'])==0:  # 调用时没有持仓
             return
-        newinfo = pd.DataFrame( portfolio.UNDL_POOL_INFO, index = portfolio.POOL_COLUMNS.split(',')  ).T
+        newinfo = pd.DataFrame( portfolio.UNDL_POOL_INFO, index = portfolio.POOL_COLUMNS.split(',')).T
         addval = 0
-        for tp in self.holdlist.keys():
+        for tp in self.holdlist:
             holding=self.holdlist[tp]
             if len(holding) == 0:
                 continue
-            for k in holding.keys():
+            for k in holding:
                 holdingK=holding[k]
-                addval += np.sum( (newinfo.loc[holdingK['code'].tolist(),'rt_last'].values - holdingK['prc'].values) * holdingK['num'].values )
+                #holding_code = holdingK['code'].values
+                holding_code = holdingK['code'].tolist()
+                lastprc = newinfo['rt_last'][holding_code].values
+                addval += np.sum( ( lastprc - holdingK['prc'].values) * holdingK['num'].values )
         self.addvalue['floated'] = addval
 
 
     def startplot(self):   # 如需画图，则将该产品 对象 添加到 portfolio 类画图列表中
-        added_plots = portfolio.PLOT_OBJ.keys()
+        added_plots = portfolio.PLOT_OBJ
         if self.plotid not in added_plots:
             portfolio.PLOT_NUM+=1
             self.plotid = portfolio.PLOT_NUM
