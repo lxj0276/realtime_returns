@@ -9,16 +9,13 @@ import matplotlib.dates as mdate
 import matplotlib.ticker as mtick
 import matplotlib as mpl
 from src.help_functions import *
+from src.global_vars import *
 
 
 class portfolio:
 
     FLUSH_POOL = 1
     FLUSH_CWSTAT = 1
-    UNDL_POOL = {'total':set([])}   # 数据结构 dict： {'total' : 所有标的 set , 'pofname1': {'stocks': set , 'futures': set , ...} , 'pofname2': {...} , ... }
-    POOL_COLUMNS = 'rt_last'  #rt_time,rt_pct_chg'
-    COLNUM=len(POOL_COLUMNS.split(','))
-    UNDL_POOL_INFO = {}   # 存储以各个品种code为key的字典
     PLOT_OBJ = {}   # 需要画图的对象
     REGI_OBJ = [] # 所有已创建的对象
     PLOT_NUM = 0
@@ -26,9 +23,16 @@ class portfolio:
 
     FIGDIR = r'.'
 
+    global UNDL_POOL
+    global UNDL_POOL_INFO
+    global POOL_COLUMNS
+    global CALLBACK_TYPE
+    COLNUM = len(POOL_COLUMNS.split(','))
+
 
     @staticmethod
     def undlpool_callback(indata):
+        print(indata)
         if indata.ErrorCode!=0:
             raise Exception('Error in callback with ErrorCode %d' %indata.ErrorCode)  # 实际使用时，为防止中断可改为log输出
         for dumi in range(len(indata.Codes)):
@@ -37,20 +41,21 @@ class portfolio:
                 tempdata = []
                 for dumj in range(fieldlen):
                     tempdata.append(indata.Data[dumj][dumi])
-                portfolio.UNDL_POOL_INFO[indata.Codes[dumi]] = tempdata
+                UNDL_POOL_INFO[indata.Codes[dumi]] = tempdata
 
 
     @classmethod
     def update_undlpool(cls):
 
-        w.start()
-        tot=list(portfolio.UNDL_POOL['total'])
+        tot=list(UNDL_POOL['total'])
         underlyings=''.join(tot)
         underlyings=underlyings.replace("SH","SH,")
         underlyings=underlyings.replace("SZ","SZ,")
         underlyings=underlyings.replace("CFE","CFE,")
 
-        w.wsq(underlyings,portfolio.POOL_COLUMNS,func=portfolio.undlpool_callback)   # 订阅POOL里面所有的undelryings
+        # w.start()
+        # w.wsq(underlyings,POOL_COLUMNS,func=portfolio.undlpool_callback)   # 订阅POOL里面所有的undelryings
+        request_func(CALLBACK_TYPE,[underlyings,POOL_COLUMNS,portfolio.undlpool_callback])
 
         today=dt.date.today()
         start=dt.datetime(year=today.year, month=today.month,day=today.day,hour= 9,minute=30,second=0)
@@ -103,39 +108,39 @@ class portfolio:
     def add_pool(cls,lst,pofname):
         # 把list加入资产池
         # lst 结构为{交易品种：对应数据表} 如{stocks:pd.dtfm, futures: pd.dtfm}
-        if pofname not in portfolio.UNDL_POOL:  # 如果pool中没有该产品则新创建
+        if pofname not in UNDL_POOL:  # 如果pool中没有该产品则新创建
             tempdict = {}
             for k in lst:
                 toadd = set(lst[k]['code'])
                 tempdict[k] = toadd
-                portfolio.UNDL_POOL['total'] |= toadd
-            portfolio.UNDL_POOL[pofname]=tempdict
+                UNDL_POOL['total'] |= toadd
+            UNDL_POOL[pofname]=tempdict
         else:
             for k in lst:
                 toadd = set(lst[k]['code'])
-                if k not in portfolio.UNDL_POOL[pofname]:
-                    portfolio.UNDL_POOL[pofname][k] = toadd
+                if k not in UNDL_POOL[pofname]:
+                    UNDL_POOL[pofname][k] = toadd
                 else:
-                    portfolio.UNDL_POOL[pofname][k] |= toadd
-                portfolio.UNDL_POOL['total'] |= toadd
+                    UNDL_POOL[pofname][k] |= toadd
+                UNDL_POOL['total'] |= toadd
 
 
     @classmethod
     def pop_pool(cls,pofname,poplst):
         # 从 pool 中删除
         # 根据特定 portfolio pop
-        if pofname in portfolio.UNDL_POOL:
-            #holdonly = portfolio.UNDL_POOL[pofname]  # 提取该组合特有的股票删除，不能删除 total 中与其他组合共有的股票
+        if pofname in UNDL_POOL:
+            #holdonly = UNDL_POOL[pofname]  # 提取该组合特有的股票删除，不能删除 total 中与其他组合共有的股票
             holdonly = {}
             for k in poplst:
                 holdonly[k]=set(poplst[k]['code'].values)
-            for k in portfolio.UNDL_POOL:
+            for k in UNDL_POOL:
                 if k not in ( 'total', pofname):
                     for undl in poplst:
-                        holdonly[undl] -= portfolio.UNDL_POOL[k][undl]
+                        holdonly[undl] -= UNDL_POOL[k][undl]
             for und in holdonly:      # 删除 total 中对应部分
-                portfolio.UNDL_POOL['total'] -= holdonly[und]
-            del portfolio.UNDL_POOL[pofname]  # 删除对应产品, 可能仍有部分碎股会存在
+                UNDL_POOL['total'] -= holdonly[und]
+            del UNDL_POOL[pofname]  # 删除对应产品, 可能仍有部分碎股会存在
 
 
     def __init__(self,pofname,pofvalue,hldlstdir,trdlstdir,cwstatusdir):
@@ -195,6 +200,7 @@ class portfolio:
                     #self.holdlist['T0'] = trdlst['in']     # 当天买入的股票算作 T+0
                     self.update_holdlist(trdlst['in'],'T0')
                     portfolio.add_pool(self.holdlist['T0'],self.pofname)
+                    time.sleep(1)
                     self.noposition = False
                     statchg = 1
                     updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
@@ -207,21 +213,24 @@ class portfolio:
                     if trdlst['in']:
                         self.update_holdlist(trdlst['in'],'T0')
                         portfolio.add_pool(trdlst['in'],self.pofname)
+                        time.sleep(1)
                         updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
                 else:  # 买卖都有
                     if trdlst['in'] and trdlst['out']:
                         self.update_holdlist(trdlst['in'],'T0')
                         self.update_holdlist(trdlst['out'],'T1')
                         portfolio.add_pool(trdlst['in'],self.pofname)
+                        time.sleep(1)
                         updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
         if updtstat:  # 持仓更新成功，单子已经到达录入成功
-            w.start()
-            tot=list(portfolio.UNDL_POOL['total'])
+            tot=list(UNDL_POOL['total'])
             underlyings=''.join(tot)
             underlyings=underlyings.replace("SH","SH,")
             underlyings=underlyings.replace("SZ","SZ,")
             underlyings=underlyings.replace("CFE","CFE,")
-            w.wsq(underlyings,portfolio.POOL_COLUMNS,func=portfolio.undlpool_callback)  # 有持仓更新的话需要重新订阅
+            # w.start()
+            # w.wsq(underlyings,POOL_COLUMNS,func=portfolio.undlpool_callback)  # 有持仓更新的话需要重新订阅
+            request_func(CALLBACK_TYPE, [underlyings, POOL_COLUMNS, portfolio.undlpool_callback])
             self.lasttrdstat=currtrdstat
         return statchg
 
@@ -304,7 +313,7 @@ class portfolio:
         # 当日卖出的部分属于 fixed 收益，在 update_holdlist 中计算
         if len(self.holdlist['T0'])==0 and len(self.holdlist['T1'])==0:  # 调用时没有持仓
             return
-        newinfo = pd.DataFrame( portfolio.UNDL_POOL_INFO, index = portfolio.POOL_COLUMNS.split(',')).T
+        newinfo = pd.DataFrame( UNDL_POOL_INFO, index = POOL_COLUMNS.split(',')).T
         addval = 0
         for tp in self.holdlist:
             holding=self.holdlist[tp]
@@ -312,8 +321,8 @@ class portfolio:
                 continue
             for k in holding:
                 holdingK=holding[k]
-                #holding_code = holdingK['code'].values
-                holding_code = holdingK['code'].tolist()
+                holding_code = holdingK['code'].values
+                #holding_code = holdingK['code'].tolist()
                 lastprc = newinfo['rt_last'][holding_code].values
                 addval += np.sum( ( lastprc - holdingK['prc'].values) * holdingK['num'].values )
         self.addvalue['floated'] = addval
@@ -339,7 +348,7 @@ class portfolio:
             self.startplot()
         elif statchg == -1:
             self.stopplot()
-        if portfolio.UNDL_POOL_INFO:
+        if UNDL_POOL_INFO:
             self.update_addvalue()
 
 

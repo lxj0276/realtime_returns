@@ -1,5 +1,8 @@
 import math
+import time
 import numpy as np
+from WindPy import w
+from src.global_vars import *
 
 
 def holdlist_format():
@@ -39,3 +42,31 @@ def calc_shape(num):
         else:
             shape = (lower,lower)
     return shape
+
+
+def request_func(type,params):
+    if type=='wind':
+        w.start()
+        w.wsq(params[0],params[1],func = params[2])
+    if type=='goldmine':
+        pass
+    if type=='simulation':
+        pass
+
+
+def simugen():
+    global UNDL_POOL
+    global UNDL_POOL_INFO
+    global POOL_COLUMNS
+
+    step = 1
+    colnum = len(POOL_COLUMNS.split(','))
+    holdings = UNDL_POOL['total']
+
+    while True:
+        for undl in holdings:
+            if undl not in UNDL_POOL_INFO:
+                UNDL_POOL_INFO[undl] = np.random.randn(colnum)*step
+            else:
+                UNDL_POOL_INFO[undl] += np.random.randn(colnum)*step
+        time.sleep(0.5)
