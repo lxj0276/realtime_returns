@@ -1,5 +1,7 @@
+import os
 import math
 import time
+import threading
 import numpy as np
 from WindPy import w
 from src.global_vars import *
@@ -15,6 +17,19 @@ def trdlist_format():
     # 做多 数量为正、金额为正， 做空为负、金额为负， 价格恒正, 交易成本恒为负
     # 返回项 : windcode, name, num, prc,val,transaction_cost, inout
     pass
+
+
+def clear_dir(pathdir):
+    # 清空制定文件夹,删除其中 文件 和 文件夹
+    if os.path.isfile(pathdir):
+        raise Exception(u'当前路径为文件，应该提供一个文件夹')
+    inpath = os.listdir(pathdir)
+    for fl in inpath:
+        fldir = os.path.join(pathdir,fl)
+        if os.path.isfile(fldir):
+            os.remove(fldir)
+        if os.path.isdir(fldir):
+            os.rmdir(fldir)
 
 
 def calc_trd_levels(prestat,currstat):
@@ -51,7 +66,7 @@ def request_func(type,params):
     if type=='goldmine':
         pass
     if type=='simulation':
-        pass
+        threading.Thread(target=simugen).start()
 
 
 def simugen(type = 'Brownian'):
@@ -75,3 +90,9 @@ def simugen(type = 'Brownian'):
                 else:
                     UNDL_POOL_INFO[undl] += np.sqrt(step) * np.random.randn(colnum)
         time.sleep(0.5)
+
+
+
+if __name__ == '__main__':
+    dr = r"C:\Users\Jiapeng\Desktop\test.py"
+    clear_dir(dr)
