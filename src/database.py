@@ -24,7 +24,6 @@ class DatabaseConnect:
 
 class ClientToDatabase:
     """ 用于将交易端导出的数据存储进相应的数据库(包含多张表) """
-
     def __init__(self,dbdir,pofname):
         self._dbdir = dbdir
         self._pofname = pofname
@@ -42,22 +41,50 @@ class ClientToDatabase:
             mark = '_morning'
         return now.date().strftime('%Y%m%d')+mark
 
-
-    @classmethod
-    def gen_table_titles(cls,titles,varstypes):
-        """ 为采取 通过直接读取生成数据库表格标题 的任务创建带有数据类型的标题
+    @classmethod  # 可以升级为模块方法与其他任务共享
+    def gen_table_titles(cls,titles,varstypes,defaluttype = 'REAL'):
+        """ 为采取 通过直接读取生成数据库表格标题 的任务创建带有数据类型的标题 同时识别空标题
             titles 为包含已经识别出作为标题的数据的列表
             vartypes 应给为可能包含的数据类型的字典
         """
         typed_titles = []
+        empty_pos = []
         for tvar in titles:
             for tp in varstypes:
                 if tvar in varstypes[tp]:
-                    typed_titles.append(tvar+tp)
+                    typed_titles.append(tvar.strip('(%)')+' '+tp)
+                    empty_pos.append(False)
+                elif tvar == '':
+                    empty_pos.append(True)
+                else:
+                    typed_titles.append(tvar.strip('(%)')+' '+defaluttype)
+                    empty_pos.append(False)
+        return {'typed_titles':typed_titles,'empty_pos':empty_pos}
+
+    @classmethod # 可以升级为模块方法与其他任务共享
+    def create_db_table(cls,cursor,tablename,titles,replace=True):
+        """ 通过数据库已建立的 cursor object 创建数据库表格
+            title 为标题 列表
+        """
+        exeline = ''.join(['CREATE TABLE ',tablename,' (',','.join(titles),') '])
+        try:
+            cursor.execute(exeline)
+        except sqlite3.OperationalError as e:
+            if 'already exists' in str(e):
+                if replace:    # 如果替换的话，先删除已存在表格再创建
+                    cursor.execute(''.join(['DROP TABLE ',tablename]))
+                    cursor.execute(exeline)
+                    print('Table '+tablename+' created!')
+                else:
+                    print('Table '+tablename+' already exists!')
+            else:
+                raise e
+        else:
+            print('Table '+tablename+' created!')
 
 
     def holdlist_to_db(self,tabledir,textvars,currencymark='币种',codemark='证券代码',replace=True):
-        """将一张持仓表格更新至数据库"""
+        """ 将 一张 持仓表格 更新至数据库 """
         tablename = self._pofname + '_' + self.get_datetime()
         with DatabaseConnect(self._dbdir) as conn:
             c = conn.cursor()
@@ -71,33 +98,11 @@ class ClientToDatabase:
                         if not summary:    # 检查持仓汇总部分
                             if currencymark in line:  #寻找汇总标题
                                 stitles = line
-                                stitletrans = []
-                                stitlepos = [] # 记录有数值的summary的位置给下一行输入的时候使用
-                                for stvar in stitles:
-                                    if stvar == currencymark:
-                                        stitletrans.append(stvar + ' TEXT')
-                                        stitlepos.append(True)
-                                    elif stvar != '':
-                                        stitletrans.append(stvar + ' REAL')
-                                        stitlepos.append(True)
-                                    else:
-                                        stitlepos.append(False)
-                                exeline = ''.join(['CREATE TABLE ',tablename,'_summary (',','.join(stitletrans),') '])
-                                try:
-                                    c.execute(exeline)
-                                except sqlite3.OperationalError as e:
-                                    if 'already exists' in str(e):
-                                        if replace:    # 如果替换的话，先删除已存在表格再创建
-                                            c.execute(''.join(['DROP TABLE ',tablename,'_summary']))
-                                            c.execute(exeline)
-                                            print('Table '+tablename+'_summary created!')
-                                        else:
-                                            print('Table '+tablename+'_summary already exists!')
-                                    else:
-                                        raise e
-                                else:
-                                    print('Table '+tablename+'_summary created!')
                                 currpos = stitles.index(currencymark)
+                                stitlecheck = ClientToDatabase.gen_table_titles(stitles,{'TEXT':(currencymark,)})
+                                stitletrans = stitlecheck['typed_titles']
+                                stitle_empty = stitlecheck['empty_pos']
+                                ClientToDatabase.create_db_table(c,tablename+'_summary',stitletrans,replace)
                                 rawline = fl.readline()
                                 summary = True
                                 continue
@@ -106,36 +111,18 @@ class ClientToDatabase:
                                 exeline = ''.join(['INSERT INTO ', tablename, '_summary VALUES (', ','.join(['?']*len(stitletrans)), ')'])
                                 newline = []
                                 for dumi in range(len(line)):
-                                    if stitlepos[dumi]:
+                                    if not stitle_empty[dumi]:
                                         newline.append(line[dumi])
                                 c.execute(exeline, newline)
                                 conn.commit()
-
-                        if codemark in line:  #寻找正表标题
+                        #寻找正表标题
+                        if codemark in line:
                             titles = line
                             codepos = titles.index(codemark)
-                            titletrans = []
-                            for tvar in titles:
-                                if tvar in textvars:
-                                    titletrans.append( tvar.strip('(%)')+' TEXT')
-                                else:
-                                    titletrans.append(tvar.strip('(%)')+ ' REAL')
-                            titletrans = ','.join(titletrans)
-                            exeline = ''.join(['CREATE TABLE ',tablename,' (',titletrans,') '])
-                            try:
-                                c.execute(exeline)
-                            except sqlite3.OperationalError as e:
-                                if 'already exists' in str(e):
-                                        if replace:    # 如果替换的话，先删除已存在表格再创建
-                                            c.execute(''.join(['DROP TABLE ',tablename]))
-                                            c.execute(exeline)
-                                            print('Table '+tablename+' created!')
-                                        else:
-                                            print('Table '+tablename+' already exists!')
-                                else:
-                                    raise e
-                            else:
-                                print('Table '+tablename+' created!')
+                            titlecheck = ClientToDatabase.gen_table_titles(titles,{'TEXT':textvars})
+                            titletrans = titlecheck['typed_titles']
+                            # title_empty = titlecheck['empty_pos']   # 此处尤其暗藏风险，假设正表数据没有空列
+                            ClientToDatabase.create_db_table(c,tablename,titletrans,replace)
                             rawline = fl.readline()
                             startwrite = True
                             continue
@@ -145,8 +132,10 @@ class ClientToDatabase:
                         c.execute(exeline, line)
                         conn.commit()
                     rawline = fl.readline()
+            print('Table '+tablename+' updated to database !')
 
-            print('Table '+tablename+' update finished !')
+    def trdlist_to_db(self):
+        pass
 
 
 
@@ -158,7 +147,6 @@ if __name__ == '__main__':
     newfile = 'newfiles'
     db = 'holdingdb'
     dividend = 'dividendfiles'
-
 
     date = str(dt.datetime.strftime(dt.date.today(),'%Y%m%d'))
 
