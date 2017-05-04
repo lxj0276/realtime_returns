@@ -1,10 +1,13 @@
 import os
 import math
 import time
+import sqlite3
 import threading
 import numpy as np
+import datetime as dt
 from WindPy import w
 from src.global_vars import *
+
 
 
 def holdlist_format():
@@ -20,7 +23,7 @@ def trdlist_format():
 
 
 def clear_dir(pathdir):
-    # 清空制定文件夹,删除其中 文件 和 文件夹
+    """ 清空制定文件夹,删除其中 文件 和 文件夹 """
     if os.path.isfile(pathdir):
         raise Exception(u'当前路径为文件，应该提供一个文件夹')
     inpath = os.listdir(pathdir)
@@ -33,6 +36,7 @@ def clear_dir(pathdir):
 
 
 def calc_trd_levels(prestat,currstat):
+    """ 根据cwstate文件计算持仓挡位情况 """
     statchg = currstat - prestat
     inlvs = np.sum(statchg < 0)
     outlvs = np.sum(statchg > 0)
@@ -41,7 +45,7 @@ def calc_trd_levels(prestat,currstat):
 
 
 def calc_shape(num):
-    # 计算画图子图的分布
+    """ 根据子图总数量 计算画图子图的分布 """
     if num<= 0 :
         raise Exception ('the input number must be greater then zero')
     else:
@@ -59,7 +63,8 @@ def calc_shape(num):
     return shape
 
 
-def request_func(type,params):
+def data_subscribe(type,params):
+    """  数据源订阅 """
     if type=='wind':
         w.start()
         w.wsq(params[0],params[1],func = params[2])
@@ -70,6 +75,7 @@ def request_func(type,params):
 
 
 def simugen(type = 'Brownian'):
+    """ 模拟行情数据生成器 """
     global UNDL_POOL
     global UNDL_POOL_INFO
     global POOL_COLUMNS
@@ -77,7 +83,6 @@ def simugen(type = 'Brownian'):
     step = 1
     colnum = len(POOL_COLUMNS.split(','))
     holdings = UNDL_POOL['total']
-
     while True:
         for undl in holdings:
             if undl not in UNDL_POOL_INFO:
@@ -92,7 +97,9 @@ def simugen(type = 'Brownian'):
         time.sleep(0.5)
 
 
-
-if __name__ == '__main__':
-    dr = r"C:\Users\Jiapeng\Desktop\test.py"
-    clear_dir(dr)
+def undl_backfix(undl):
+    """ 为标的undl 增加后缀，目前采用万得后缀标准 undl 应为字符串"""
+    if undl[0] in ('0','3'):
+        return undl + '.SZ'
+    elif undl[0] in ('6'):
+        return undl + '.SH'
