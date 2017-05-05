@@ -95,11 +95,3 @@ def simugen(type = 'Brownian'):
                 else:
                     UNDL_POOL_INFO[undl] += np.sqrt(step) * np.random.randn(colnum)
         time.sleep(0.5)
-
-
-def undl_backfix(undl):
-    """ 为标的undl 增加后缀，目前采用万得后缀标准 undl 应为字符串"""
-    if undl[0] in ('0','3'):
-        return undl + '.SZ'
-    elif undl[0] in ('6'):
-        return undl + '.SH'

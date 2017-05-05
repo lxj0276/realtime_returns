@@ -5,7 +5,17 @@ import sqlite3
 import datetime as dt
 import pandas as pd
 import numpy as np
-from src.help_functions import *
+
+
+
+def undl_backfix(undl):
+    """ 为标的undl 增加后缀，目前采用万得后缀标准 undl 应为字符串"""
+    if undl[0] in ('0','3'):
+        return undl + '.SZ'
+    elif undl[0] in ('6'):
+        return undl + '.SH'
+    else:
+        return undl
 
 
 class DatabaseConnect:
@@ -27,14 +37,16 @@ class ClientToDatabase:
     def __init__(self,dbdir,pofname):
         self._dbdir = dbdir
         self._pofname = pofname
+        self._holdtbname = None
+        self.set_holdtbname()
 
     @classmethod
-    def get_datetime(cls,input = None):
+    def get_datetime(cls,inputdate = None):
         """ 获取日期与时间，如果没有给定的话(input=None)则提取当前,input应该是datetime 格式 """
-        if input is None:
+        if inputdate is None:
             now = dt.datetime.now()
         else:
-            now = input
+            now = inputdate
         if now.time()>dt.time(12,0,0,0):
             mark = '_afternoon'
         else:
@@ -82,10 +94,12 @@ class ClientToDatabase:
         else:
             print('Table '+tablename+' created!')
 
+    def set_holdtbname(self,inputdate = None):
+        self._holdtbname = self._pofname + '_' + self.get_datetime(inputdate)
 
     def holdlist_to_db(self,tabledir,textvars,currencymark='币种',codemark='证券代码',replace=True):
         """ 将 一张 持仓表格 更新至数据库 """
-        tablename = self._pofname + '_' + self.get_datetime()
+        tablename = self._holdtbname
         with DatabaseConnect(self._dbdir) as conn:
             c = conn.cursor()
             with open(tabledir,'r') as fl:
@@ -150,7 +164,7 @@ if __name__ == '__main__':
 
     date = str(dt.datetime.strftime(dt.date.today(),'%Y%m%d'))
 
-    products = ['bq1','bq2','jq1','hj1','gd2','ls1']
+    products =['bq1'] # ['bq1','bq2','jq1','hj1','gd2','ls1']
     textvars = {'bq1': ('备注','股东代码','证券代码','证券名称','资金帐号'),
                 'bq2': ('股东代码','证券代码','证券名称'),
                 'jq1': ('股东代码','证券代码','证券名称'),
