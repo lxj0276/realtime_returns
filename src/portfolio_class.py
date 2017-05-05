@@ -41,10 +41,8 @@ class Portfolio:
                     tempdata.append(indata.Data[dumj][dumi])
                 UNDL_POOL_INFO[indata.Codes[dumi]] = tempdata
 
-
     @classmethod
     def update_undlpool(cls):
-
         tot=list(UNDL_POOL['total'])
         underlyings=''.join(tot)
         underlyings=underlyings.replace("SH","SH,")
@@ -71,7 +69,6 @@ class Portfolio:
             time.sleep(Portfolio.FLUSH_CWSTAT)
             for obj in Portfolio.REGI_OBJ:
                 obj.update_object()
-
             count = 1
             for id in sorted( Portfolio.PLOT_OBJ ):    #  Portfolio.PLOT_OBJ 是以增加过的画图 obj 的 regid
                 plobj = Portfolio.PLOT_OBJ[id]
@@ -93,7 +90,6 @@ class Portfolio:
                 axes[obj].set_xlim(x[obj][0], x[obj][-1])
                 plt.pause(0.01)
                 count +=1
-
             for id in sorted(Portfolio.PLOT_OBJ):
                 plobj = Portfolio.PLOT_OBJ[id]
                 obj = plobj[0]
@@ -102,7 +98,6 @@ class Portfolio:
 
         print('plot finished')
         plt.savefig(os.path.join(Portfolio.FIGDIR,str(today)+'.png'))
-
 
     @classmethod
     def add_pool(cls,lst,pofname):
@@ -123,7 +118,6 @@ class Portfolio:
                 else:
                     UNDL_POOL[pofname][k] |= toadd
                 UNDL_POOL['total'] |= toadd
-
 
     @classmethod
     def pop_pool(cls,pofname,poplst):
@@ -161,12 +155,10 @@ class Portfolio:
         for undl in handlstdir:
             clear_dir(handlstdir[undl])
         self.handlist = {}
-
         Portfolio.REGED_NUM += 1
         self.regid = Portfolio.REGED_NUM
         Portfolio.REGI_OBJ.append(self)
         self.plotid = 0
-
         if not self.noposition: # 交易开始前就有持仓的情况下，加入holdlist, 当天开始时无持仓则不必
             self.holdlist['T1'] = self.read_holdlist()
             if self.holdlist['T1']:
@@ -181,7 +173,6 @@ class Portfolio:
             val = float(pofinfo.readlines()[0])
         return val
 
-
     def get_trdstat(self):
         # 返回从cwstate.txt读取的内容，类型为np array
         with open(self.cwstatusdir,'r') as cwinfo:
@@ -189,7 +180,6 @@ class Portfolio:
             contents_temp = [c.strip().split(',') for c in temp]
             contents = [[int(c) for c in t] for t in contents_temp]
         return np.array(contents)
-
 
     def flush_trdstat(self):
         # 根据持仓状态变更，更新 holdlist以及资产池，并更新 lasttrdstat
@@ -244,7 +234,6 @@ class Portfolio:
             time.sleep(Portfolio.CHARGE_TIME)
         return statchg
 
-
     def check_handtrd(self):
         # 暂定为不断扫描handlstdir
         hastrd = False
@@ -266,7 +255,6 @@ class Portfolio:
             data_subscribe(CALLBACK_TYPE, [underlyings, POOL_COLUMNS, Portfolio.undlpool_callback])
             time.sleep(Portfolio.CHARGE_TIME)
             print('has handtrd in %s' % self.pofname)
-
 
     def read_trdlist(self, handtrd = False):  # 返回 买入 卖出两个方向的单子
         if handtrd:
@@ -300,7 +288,6 @@ class Portfolio:
                 trdlist['out'][k] = groupedout
         return trdlist
 
-
     def read_holdlist(self):
         # 返回字典结构,字典的key是各个不同品种的标的，如stocks\futures\options etc  注意 ： 此处不涉及 T0 T1
         holdlist={}
@@ -308,7 +295,6 @@ class Portfolio:
             holdlist[k] = pd.read_csv(self.hldlstdir[k],encoding='gb2312',names=['code','name','num','prc','val'])
             holdlist[k].index = holdlist[k]['code'].tolist()
         return holdlist
-
 
     def update_holdlist(self,lst,type):
         # 只有在有交易的时候才调用此函数 更新holdlist , 对象初始化时不必调用
@@ -342,7 +328,6 @@ class Portfolio:
                         self.holdlist['T0'][k] = lst[k]
                     ts += lst[k]['tscost'].sum()
         self.addvalue['fixed'] += ts
-
     
     def update_addvalue(self):
         # 只计算尚未卖出的收益，即floated 收益
@@ -363,7 +348,6 @@ class Portfolio:
                 addval += np.sum( ( lastprc - holdingK['prc'].values) * holdingK['num'].values )
         self.addvalue['floated'] = addval
 
-
     def startplot(self):   # 如需画图，则将该产品 对象 添加到 Portfolio 类画图列表中
         added_plots = Portfolio.PLOT_OBJ
         if self.plotid not in added_plots:
@@ -373,10 +357,8 @@ class Portfolio:
         else:
             Portfolio.PLOT_OBJ[self.plotid][1] = True
 
-
     def stopplot(self):
         Portfolio.PLOT_OBJ[self.plotid][1] = False
-
 
     def update_object(self):  # 定时扫描交易状态 trdlistdir 并更新 holdlist
         self.pofvalue = self.get_pofvalue()    # 更新总资产，应对当日转账情况
