@@ -24,32 +24,25 @@ class Portfolio:
 
     global UNDL_POOL
     global UNDL_POOL_INFO
-    global POOL_COLUMNS
-    global CALLBACK_TYPE
-    COLNUM = len(POOL_COLUMNS.split(','))
+    global POOL_COLUMNS        # 订阅数据字段 列表
+    global SUBSCRIBE_SOURCE    # 订阅数据源
 
 
-    @staticmethod
-    def undlpool_callback(indata):
-        if indata.ErrorCode!=0:
-            raise Exception('Error in callback with ErrorCode %d' %indata.ErrorCode)  # 实际使用时，为防止中断可改为log输出
-        for dumi in range(len(indata.Codes)):
-            fieldlen=len(indata.Fields)
-            if fieldlen==Portfolio.COLNUM:   # 只有在所有field都有数据的时候才存储
-                tempdata = []
-                for dumj in range(fieldlen):
-                    tempdata.append(indata.Data[dumj][dumi])
-                UNDL_POOL_INFO[indata.Codes[dumi]] = tempdata
+    # @staticmethod
+    # def undlpool_callback(indata):
+    #     if indata.ErrorCode!=0:
+    #         raise Exception('Error in callback with ErrorCode %d' %indata.ErrorCode)  # 实际使用时，为防止中断可改为log输出
+    #     for dumi in range(len(indata.Codes)):
+    #         fieldlen=len(indata.Fields)
+    #         if fieldlen==Portfolio.COLNUM:   # 只有在所有field都有数据的时候才存储
+    #             tempdata = []
+    #             for dumj in range(fieldlen):
+    #                 tempdata.append(indata.Data[dumj][dumi])
+    #             UNDL_POOL_INFO[indata.Codes[dumi]] = tempdata
 
     @classmethod
     def update_undlpool(cls):
-        tot=list(UNDL_POOL['total'])
-        underlyings=''.join(tot)
-        underlyings=underlyings.replace("SH","SH,")
-        underlyings=underlyings.replace("SZ","SZ,")
-        underlyings=underlyings.replace("CFE","CFE,")
-
-        data_subscribe(CALLBACK_TYPE,[underlyings,POOL_COLUMNS,Portfolio.undlpool_callback])
+        data_subscribe(SUBSCRIBE_SOURCE)
 
         today=dt.date.today()
         start=dt.datetime(year=today.year, month=today.month,day=today.day,hour= 8,minute=30,second=0)
@@ -137,7 +130,7 @@ class Portfolio:
             del UNDL_POOL[pofname]  # 删除对应产品, 可能仍有部分碎股会存在
 
 
-    def __init__(self,pofname,pofvaldir,hldlstdir,trdlstdir,cwstatusdir,handlstdir=False):
+    def __init__(self,pofname,pofvaldir,hldlstdir,trdlstdir,cwstatusdir,handlstdir=None):
         self.pofname = pofname
         self.pofvaldir = pofvaldir
         self.pofvalue = self.get_pofvalue()                 # 产品前一日总资产
@@ -152,7 +145,7 @@ class Portfolio:
             clear_dir(trdlstdir[undl])
         self.trdlist = {}
         self.handlstdir = handlstdir
-        for undl in handlstdir:
+        for undl in self.handlstdir:
             clear_dir(handlstdir[undl])
         self.handlist = {}
         Portfolio.REGED_NUM += 1
@@ -224,12 +217,7 @@ class Portfolio:
                         Portfolio.add_pool(trdlst['in'],self.pofname)
                         updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
         if updtstat:  # 持仓更新成功，单子已经到达录入成功
-            tot=list(UNDL_POOL['total'])
-            underlyings=''.join(tot)
-            underlyings=underlyings.replace("SH","SH,")
-            underlyings=underlyings.replace("SZ","SZ,")
-            underlyings=underlyings.replace("CFE","CFE,")
-            data_subscribe(CALLBACK_TYPE, [underlyings, POOL_COLUMNS, Portfolio.undlpool_callback])
+            data_subscribe(SUBSCRIBE_SOURCE)
             self.lasttrdstat=currtrdstat
             time.sleep(Portfolio.CHARGE_TIME)
         return statchg
@@ -247,12 +235,7 @@ class Portfolio:
             self.update_holdlist(handlst['out'], 'T1')
             hastrd = True
         if hastrd:  # 持仓更新成功，单子已经到达录入成功
-            tot=list(UNDL_POOL['total'])
-            underlyings=''.join(tot)
-            underlyings=underlyings.replace("SH","SH,")
-            underlyings=underlyings.replace("SZ","SZ,")
-            underlyings=underlyings.replace("CFE","CFE,")
-            data_subscribe(CALLBACK_TYPE, [underlyings, POOL_COLUMNS, Portfolio.undlpool_callback])
+            data_subscribe(SUBSCRIBE_SOURCE)
             time.sleep(Portfolio.CHARGE_TIME)
             print('has handtrd in %s' % self.pofname)
 
@@ -334,7 +317,7 @@ class Portfolio:
         # 当日卖出的部分属于 fixed 收益，在 update_holdlist 中计算
         if len(self.holdlist['T0'])==0 and len(self.holdlist['T1'])==0:  # 调用时没有持仓
             return
-        newinfo = pd.DataFrame( UNDL_POOL_INFO, index = POOL_COLUMNS.split(',')).T
+        newinfo = pd.DataFrame( UNDL_POOL_INFO, index = POOL_COLUMNS).T
         addval = 0
         for tp in self.holdlist:
             holding=self.holdlist[tp]

@@ -31,14 +31,8 @@ class DatabaseConnect:
         return False  # pop up errors
 
 
-
 class ClientToDatabase:
     """ 用于将交易端导出的数据存储进相应的数据库(包含多张表) """
-    def __init__(self,dbdir,pofname):
-        self._dbdir = dbdir
-        self._pofname = pofname
-        self._holdtbname = None
-        self.set_holdtbname()
 
     @classmethod
     def get_datetime(cls,inputdate = None):
@@ -93,6 +87,13 @@ class ClientToDatabase:
                 raise e
         else:
             print('Table '+tablename+' created!')
+
+
+    def __init__(self,dbdir,pofname):
+        self._dbdir = dbdir
+        self._pofname = pofname
+        self._holdtbname = None
+        self.set_holdtbname()
 
     def set_holdtbname(self,inputdate = None):
         self._holdtbname = self._pofname + '_' + self.get_datetime(inputdate)
@@ -153,42 +154,6 @@ class ClientToDatabase:
 
 
 
-
-if __name__ == '__main__':
-    basepath = r'E:\calc_dividend\holding_gen'
-    raw = 'rawholding'
-    file = 'holdingfiles'
-    newfile = 'newfiles'
-    db = 'holdingdb'
-    dividend = 'dividendfiles'
-
-    date = str(dt.datetime.strftime(dt.date.today(),'%Y%m%d'))
-
-    products =['bq1'] # ['bq1','bq2','jq1','hj1','gd2','ls1']
-    textvars = {'bq1': ('备注','股东代码','证券代码','证券名称','资金帐号'),
-                'bq2': ('股东代码','证券代码','证券名称'),
-                'jq1': ('股东代码','证券代码','证券名称'),
-                'hj1': ('股东代码','证券代码','证券名称'),
-                'gd2': ('股东代码','证券代码','证券名称'),
-                'ls1': ('产品名称','到期日','股东账号','账号名称','证券代码','证券名称','状态','资金账号')
-                }
-    divfile = os.path.join(basepath,dividend,'dividend_'+date+'.txt')
-
-    for p in products:
-        obj = ClientToDatabase(r'E:\test.db',p)
-        obj.holdlist_to_db(r'E:\calc_dividend\holding_gen\rawholding'+'\\'+p+'\\'+p+'_20170502.csv',textvars[p])
-
-
-    # 读取 raw 至数据库
-    # for p in products:
-    #     rawfile = os.path.join(basepath,raw,p,p+'_'+date+'.csv')
-    #     rawdb = os.path.join(basepath,db,p+'.db')
-    #     outdir = os.path.join(basepath,file,p)
-    #     filedir = os.path.join(outdir ,p +'_'+date+'.csv')
-    #     newdir = os.path.join(basepath,newfile,p, p+'_'+date+'.csv')
-    #     if os.path.exists(rawfile):
-    #         obj = ClientToDatabase(rawdb,p)
-    #         obj.UpdateDatabase(rawfile,textvars[p])
 
 
 

@@ -7,7 +7,7 @@ import numpy as np
 import datetime as dt
 from WindPy import w
 from src.global_vars import *
-
+from gmsdk import md
 
 
 def holdlist_format():
@@ -63,35 +63,101 @@ def calc_shape(num):
     return shape
 
 
-def data_subscribe(type,params):
-    """  数据源订阅 """
-    if type=='wind':
-        w.start()
-        w.wsq(params[0],params[1],func = params[2])
-    if type=='goldmine':
-        pass
-    if type=='simulation':
-        threading.Thread(target=simugen).start()
+def wind2gm(undllst):
+    """ 转换为标的代码wind代码 为掘金代码 """
+    gm_dict = {'SH':'SHSE','SZ':'SZSE','CFE':'CFFEX'}
+    undl_new = []
+    for undl in undllst:
+        temp = undl.split('.')
+        undl_new.append(''.join([gm_dict[temp[1]],'.',temp[0],'.tick']))
+    return undl_new
 
+def addfix(undl):
+    if undl[0] in ('0','3'):
+        return  '.'.join([undl,'SZ'])
+    elif undl[0] in ('6'):
+        return  '.'.join([undl,'SH'])
+    elif undl[0:2] in ('IF','IC','IH'):
+        return  '.'.join([undl,'CFE'])
 
-def simugen(type = 'Brownian'):
-    """ 模拟行情数据生成器 """
+def data_subscribe(source):
+    """  数据源订阅 , pool_columns 提供需要订阅的字段，需要更新undl_pool_info """
+    #  params = [underlyings, POOL_COLUMNS, Portfolio.undlpool_callback]
+
     global UNDL_POOL
     global UNDL_POOL_INFO
     global POOL_COLUMNS
+    COLNUM = len(POOL_COLUMNS)
 
-    step = 1
-    colnum = len(POOL_COLUMNS.split(','))
-    holdings = UNDL_POOL['total']
-    while True:
-        for undl in holdings:
-            if undl not in UNDL_POOL_INFO:
-                UNDL_POOL_INFO[undl] = np.random.rand(colnum)
-            else:
-                if type == 'Geometric':
-                    trend = np.random.randn(colnum)
-                    sigma = np.random.rand(colnum)
-                    UNDL_POOL_INFO[undl] *= np.exp(trend*step + sigma*np.sqrt(step)*np.random.randn(colnum))
-                else:
-                    UNDL_POOL_INFO[undl] += np.sqrt(step) * np.random.randn(colnum)
-        time.sleep(0.5)
+    if source=='wind':
+        # 定义数据源对应 callback 函数
+        def wind_callback(indata):
+            if indata.ErrorCode!=0:
+                raise Exception('Error in callback with ErrorCode %d' %indata.ErrorCode)  # 实际使用时，为防止中断可改为log输出
+            for dumi in range(len(indata.Codes)):
+                fieldlen=len(indata.Fields)
+                if fieldlen==COLNUM:   # 只有在所有field都有数据的时候才存储
+                    tempdata = []
+                    for dumj in range(fieldlen):
+                        tempdata.append(indata.Data[dumj][dumi])
+                    UNDL_POOL_INFO[indata.Codes[dumi]] = tempdata
+        w.start()
+        underlyings = list(UNDL_POOL['total'])
+        w.wsq(','.join(underlyings),','.join(POOL_COLUMNS),func = wind_callback)
+
+
+    elif source=='goldmine':
+        # 定义数据源对应 callback 函数
+        vars = {'rt_last':'tick.last_price','rt_time':'tick.str_time'}
+        def on_tick(tick):
+            tempdata = []
+            for col in POOL_COLUMNS:
+                tempdata.append(eval(vars[col]))
+            UNDL_POOL_INFO[addfix(tick.sec_idx)] = tempdata
+            print(UNDL_POOL_INFO)
+
+        underlyings = wind2gm(list(UNDL_POOL['total']))
+        ret = md.init(
+                username="18201141877",
+                password="Wqxl7309",
+                mode= 2,
+                subscribe_symbols=','.join(underlyings))
+        if ret != 0:
+            raise Exception('Error in callback with ErrorCode %d' % ret)
+        md.ev_tick += on_tick
+
+        fillundl = ','.join(underlyings).replace('.tick','')
+        ticks = md.get_last_ticks(fillundl)
+        for tick in ticks:
+            tempdata = []
+            for col in POOL_COLUMNS:
+                tempdata.append(eval(vars[col]))
+            UNDL_POOL_INFO[addfix(tick.sec_id)] = tempdata
+        print('initialized')
+
+        #md.run()  # 可能会需要开多线程, 避免同一函数重复添加
+        threading.Thread(target=md.run).start()
+
+    elif source=='simulation':
+        def simugen(pathtype = 'Brownian'):
+            """ 模拟行情数据生成器 """
+            step = 1
+            colnum = len(POOL_COLUMNS)
+            holdings = UNDL_POOL['total']
+            while True:
+                for undl in holdings:
+                    if undl not in UNDL_POOL_INFO:
+                        UNDL_POOL_INFO[undl] = np.random.rand(1,colnum)[0]
+                    else:
+                        if pathtype == 'Geometric':
+                            trend = np.random.randn(1,colnum)[0]
+                            sigma = np.random.rand(1,colnum)[0]
+                            UNDL_POOL_INFO[undl] *= np.exp(trend*step + sigma*np.sqrt(step)*np.random.randn(1,colnum))[0]
+                        else:
+                            UNDL_POOL_INFO[undl] += np.sqrt(step) * np.random.randn(1,colnum)[0]
+                time.sleep(0.5)
+        threading.Thread(target=simugen).start()
+
+    else:
+        print('No source infomation provided, can not subscribe!')
+
