@@ -1,10 +1,10 @@
-
+import datetime as dt
 import os
 import re
-import sqlite3
-import datetime as dt
-import pandas as pd
+
 import numpy as np
+import pandas as pd
+import sqlite3
 
 
 
@@ -71,6 +71,7 @@ class ClientToDatabase:
     def create_db_table(cls,cursor,tablename,titles,replace=True):
         """ 通过数据库已建立的 cursor object 创建数据库表格
             title 为标题 列表
+            如果replace为真，则会替换已存在的同名表格
         """
         exeline = ''.join(['CREATE TABLE ',tablename,' (',','.join(titles),') '])
         try:
@@ -96,10 +97,15 @@ class ClientToDatabase:
         self.set_holdtbname()
 
     def set_holdtbname(self,inputdate = None):
+        """ 根据日期时间确定持仓表格名称，如果没有给定的话(input=None)则提取当前,input应该是datetime 格式 """
         self._holdtbname = self._pofname + '_' + self.get_datetime(inputdate)
 
     def holdlist_to_db(self,tabledir,textvars,currencymark='币种',codemark='证券代码',replace=True):
-        """ 将 一张 持仓表格 更新至数据库 """
+        """ 将 一张 持仓表格 更新至数据库
+            textvars 存储数据库格式为TEXT的字段
+            currencymark 用于识别汇总情况表头 目前只有通达信终端才有 若找不到就不建立表格
+            codemark 用于标识正表表头
+        """
         tablename = self._holdtbname
         with DatabaseConnect(self._dbdir) as conn:
             c = conn.cursor()
@@ -147,13 +153,33 @@ class ClientToDatabase:
                         c.execute(exeline, line)
                         conn.commit()
                     rawline = fl.readline()
-            print('Table '+tablename+' updated to database !')
+            if startwrite: #实现写入并退出循环
+                print('Table '+tablename+' updated to database !')
+            else:  # 未能实现写入
+                print('Table '+tablename+' cannot read the main body, nothing writen !')
 
     def trdlist_to_db(self):
         pass
 
+    def holdlist_format(self,titles,outdir):
+        """ 从数据库提取画图所需格式的持仓信息，存储为 DataFrame, 输出到 csv
+            titles 应为包含 证券代码 证券名称 证券数量 最新价格 的列表
+            需要返回字段 : code, name, num, prc,val
+        """
+        # 过滤停牌股
+        tablename = self._holdtbname
+        with DatabaseConnect(self._dbdir) as conn:
+            exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename])
+            holdings = pd.read_sql(exeline,conn)
+            holdings.columns = ['code','name','num','prc']
+            holdings['val'] = holdings['num']*holdings['prc']
+            holdings = holdings.sort_values(by=['code'],ascending=[1])
+            holdings.to_csv(outdir,header = True,index=False)
 
-
+    def trdlist_format(self):
+        # 做多 数量为正、金额为正， 做空为负、金额为负， 价格恒正, 交易成本恒为负
+        # 返回项 : windcode, name, num, prc,val,transaction_cost, inout
+        pass
 
 
 

@@ -1,25 +1,16 @@
-import os
-import math
-import time
-import sqlite3
-import threading
-import numpy as np
 import datetime as dt
+import math
+import os
+import time
+import threading
+
+import sqlite3
+import numpy as np
 from WindPy import w
-from src.global_vars import *
 from gmsdk import md
 
+from src.global_vars import *
 
-def holdlist_format():
-    # 过滤停牌股
-    # 返回项 : windcode, name, num, prc,val
-    pass
-
-
-def trdlist_format():
-    # 做多 数量为正、金额为正， 做空为负、金额为负， 价格恒正, 交易成本恒为负
-    # 返回项 : windcode, name, num, prc,val,transaction_cost, inout
-    pass
 
 
 def clear_dir(pathdir):
@@ -63,13 +54,13 @@ def calc_shape(num):
     return shape
 
 
-def wind2gm(undllst):
+def wind2gm(undllst,endmark='.tick'):
     """ 转换为标的代码wind代码 为掘金代码 """
     gm_dict = {'SH':'SHSE','SZ':'SZSE','CFE':'CFFEX'}
     undl_new = []
     for undl in undllst:
         temp = undl.split('.')
-        undl_new.append(''.join([gm_dict[temp[1]],'.',temp[0],'.tick']))
+        undl_new.append(''.join([gm_dict[temp[1]],'.',temp[0],endmark]))
     return undl_new
 
 def addfix(undl):
@@ -105,7 +96,6 @@ def data_subscribe(source):
         underlyings = list(UNDL_POOL['total'])
         w.wsq(','.join(underlyings),','.join(POOL_COLUMNS),func = wind_callback)
 
-
     elif source=='goldmine':
         # 定义数据源对应 callback 函数
         vars = {'rt_last':'tick.last_price','rt_time':'tick.str_time'}
@@ -113,19 +103,21 @@ def data_subscribe(source):
             tempdata = []
             for col in POOL_COLUMNS:
                 tempdata.append(eval(vars[col]))
-            UNDL_POOL_INFO[addfix(tick.sec_idx)] = tempdata
-            print(UNDL_POOL_INFO)
+            UNDL_POOL_INFO[addfix(tick.sec_id)] = tempdata
 
         underlyings = wind2gm(list(UNDL_POOL['total']))
         ret = md.init(
                 username="18201141877",
                 password="Wqxl7309",
-                mode= 2,
-                subscribe_symbols=','.join(underlyings))
+                mode= 3)
         if ret != 0:
-            raise Exception('Error in callback with ErrorCode %d' % ret)
+            raise Exception('Error in initiation with ErrorCode %d' % ret)
+        ret = md.subscribe(','.join(underlyings))
+        if ret != 0:
+            raise Exception('Error in subscribe with ErrorCode %d' % ret)
+        # 添加回调函数
         md.ev_tick += on_tick
-
+        # 出事填充POOL，确保不会出现 NAN
         fillundl = ','.join(underlyings).replace('.tick','')
         ticks = md.get_last_ticks(fillundl)
         for tick in ticks:
@@ -133,10 +125,28 @@ def data_subscribe(source):
             for col in POOL_COLUMNS:
                 tempdata.append(eval(vars[col]))
             UNDL_POOL_INFO[addfix(tick.sec_id)] = tempdata
-        print('initialized')
-
-        #md.run()  # 可能会需要开多线程, 避免同一函数重复添加
+        # 加入线程
         threading.Thread(target=md.run).start()
+
+    elif source=='goldmime_pull':   # 快照数据
+        vars = {'rt_last':'tick.last_price','rt_time':'tick.str_time'}
+        def pull_ticks():
+            while True:
+                underlyings = wind2gm(list(UNDL_POOL['total']),endmark='')
+                ticks = md.get_last_ticks(','.join(underlyings))
+                for tick in ticks:
+                    tempdata = []
+                    for col in POOL_COLUMNS:
+                        tempdata.append(eval(vars[col]))
+                    UNDL_POOL_INFO[addfix(tick.sec_id)] = tempdata
+                time.sleep(0.5)
+        ret = md.init(
+                username="18201141877",
+                password="Wqxl7309",
+                mode= 1)
+        if ret != 0:
+            raise Exception('Error in initiation with ErrorCode %d' % ret)
+        threading.Thread(target=pull_ticks).start()
 
     elif source=='simulation':
         def simugen(pathtype = 'Brownian'):
@@ -157,7 +167,7 @@ def data_subscribe(source):
                             UNDL_POOL_INFO[undl] += np.sqrt(step) * np.random.randn(1,colnum)[0]
                 time.sleep(0.5)
         threading.Thread(target=simugen).start()
-
+        print(threading.enumerate())
     else:
         print('No source infomation provided, can not subscribe!')
 

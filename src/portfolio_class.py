@@ -1,60 +1,48 @@
+import datetime as dt
 import os
 import time
-import datetime as dt
-import numpy as np
-import pandas as pd
-from WindPy import w
+
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdate
 import matplotlib.ticker as mtick
 import matplotlib as mpl
+import numpy as np
+import pandas as pd
+from WindPy import w
+
 from src.help_functions import *
 from src.global_vars import *
 
 
+
 class Portfolio:
 
-    FLUSH_CWSTAT = 1
-    CHARGE_TIME = 1
-    PLOT_OBJ = {}   # 需要画图的对象
-    REGI_OBJ = [] # 所有已创建的对象
-    PLOT_NUM = 0
-    REGED_NUM = 0
-    FIGDIR = r'.\saved_figures'
+    FLUSH_CWSTAT = 1   # 画图更新时间将而 秒
+    CHARGE_TIME = 1    # 当日交易添加到 POOL 后，等待的时间  是否必要？
+    PLOT_OBJ = {}      # 需要画图的对象，结构为{plotid:[object, True/False]}
+    REGI_OBJ = []      # 所有已创建的实例
+    PLOT_NUM = 0       # 需要画图的数量
+    # REGED_NUM = 0      # 创建过的实力的数量
+    FIGDIR = r'.\saved_figures'   # 图像存储路径
 
-    global UNDL_POOL
-    global UNDL_POOL_INFO
+    global UNDL_POOL           # 存储所有需要更新的标的代码，其结构见 add_pool 函数
+    global UNDL_POOL_INFO      # 存储所有标的的最新推送信息，，结构为 {标的1:[v1,v2], 标的2:[v1,v2],...}
     global POOL_COLUMNS        # 订阅数据字段 列表
     global SUBSCRIBE_SOURCE    # 订阅数据源
 
-
-    # @staticmethod
-    # def undlpool_callback(indata):
-    #     if indata.ErrorCode!=0:
-    #         raise Exception('Error in callback with ErrorCode %d' %indata.ErrorCode)  # 实际使用时，为防止中断可改为log输出
-    #     for dumi in range(len(indata.Codes)):
-    #         fieldlen=len(indata.Fields)
-    #         if fieldlen==Portfolio.COLNUM:   # 只有在所有field都有数据的时候才存储
-    #             tempdata = []
-    #             for dumj in range(fieldlen):
-    #                 tempdata.append(indata.Data[dumj][dumi])
-    #             UNDL_POOL_INFO[indata.Codes[dumi]] = tempdata
-
     @classmethod
     def update_undlpool(cls):
+        """ 更新实例状态并画图 """
         data_subscribe(SUBSCRIBE_SOURCE)
-
         today=dt.date.today()
         start=dt.datetime(year=today.year, month=today.month,day=today.day,hour= 8,minute=30,second=0)
         end=dt.datetime(year=today.year, month=today.month,day=today.day,hour= 19,minute=45,second=0)
-
         # 画图配置
         shape=calc_shape(len(Portfolio.REGI_OBJ))
         mpl.rcParams['font.sans-serif'] = ['SimHei'] #用来正常显示中文标签
         plt.ion()
         fig=plt.figure(figsize=(20,20))
         fig.canvas.set_window_title(str(today))
-
         x = {}
         y = {}
         axes = {}
@@ -88,14 +76,14 @@ class Portfolio:
                 obj = plobj[0]
                 axes[obj].legend(('return : %.4f%%' % y[obj][-1],))
                 axes[obj].plot(x[obj][1:], y[obj][1:], linewidth=1, color='r')
-
         print('plot finished')
         plt.savefig(os.path.join(Portfolio.FIGDIR,str(today)+'.png'))
 
     @classmethod
     def add_pool(cls,lst,pofname):
-        # 把list加入资产池
+        """ 把lst对应标的加入资产池 """
         # lst 结构为{交易品种：对应数据表} 如{stocks:pd.dtfm, futures: pd.dtfm}
+        # UNDL_POOL 必须包含 'total' 关键字
         if pofname not in UNDL_POOL:  # 如果pool中没有该产品则新创建
             tempdict = {}
             for k in lst:
@@ -114,10 +102,9 @@ class Portfolio:
 
     @classmethod
     def pop_pool(cls,pofname,poplst):
-        # 从 pool 中删除
+        """ 从 pool 中删除对应组合，提取该组合特有的股票删除，不能删除 total 中与其他组合共有的股票 """
         # 根据特定 Portfolio pop
         if pofname in UNDL_POOL:
-            #holdonly = UNDL_POOL[pofname]  # 提取该组合特有的股票删除，不能删除 total 中与其他组合共有的股票
             holdonly = {}
             for k in poplst:
                 holdonly[k]=set(poplst[k]['code'].values)
@@ -130,35 +117,36 @@ class Portfolio:
             del UNDL_POOL[pofname]  # 删除对应产品, 可能仍有部分碎股会存在
 
 
-    def __init__(self,pofname,pofvaldir,hldlstdir,trdlstdir,cwstatusdir,handlstdir=None):
-        self.pofname = pofname
-        self.pofvaldir = pofvaldir
-        self.pofvalue = self.get_pofvalue()                 # 产品前一日总资产
-        self.cwstatusdir = cwstatusdir
-        self.lasttrdstat = self.get_trdstat()   # 创建对象的时间应该在 开始交易时间之前 （开盘前 或 9：35 之前）
-        self.noposition = not np.any(self.lasttrdstat[:,0])
-        self.addvalue = {'fixed':0 ,'floated':0 }  # 若在当天出场则为fixed收益，否则为floated
-        self.hldlstdir = hldlstdir               # 基于标的的字典 ex. {'stocks':dir1,futures:dir2}
-        self.holdlist = {'T1':{},'T0':{}}     # holdlist数据结构 ： { 'T1':{}, 'T0':{}} , T+0/T+1 部分分别存储一个基于品种的、类似lst的dict
-        self.trdlstdir = trdlstdir  # 基于标的的字典
-        for undl in trdlstdir:
+    def __init__(self,pofname,pofvaldir,hldlstdir,trdlstdir,handlstdir,cwstatusdir,databasedir):
+        self.pofname = pofname                               # 产品名称
+        self.pofvaldir = pofvaldir                           # 产品资产存储文件路径
+        self.pofvalue = self.get_pofvalue()                  # 初始化总资产
+        self.cwstatusdir = cwstatusdir                       # 交易状态文件路径
+        self.lasttrdstat = self.get_trdstat()                # 初始化交易状态
+        self.noposition = not np.any(self.lasttrdstat[:,0])  # 检查是否有持仓
+        self.addvalue = {'fixed':0 ,'floated':0 }          # 组合收益数值，若在当天出场则为fixed收益，否则为floated
+        self.hldlstdir = hldlstdir                           # 组合持仓文件路径，数据结构为 基于标的的字典 ex. {'stocks':dir1,futures:dir2}
+        self.holdlist = {'T1':{},'T0':{}}                   # 初始化组合持仓，T0对应今日买入的资产,T1对应今日之前买入的资产 , T+0/T+1 部分分别存储一个基于品种的、类似lst的dict
+        self.trdlstdir = trdlstdir                           # 当日交易单子文件路径，类似于hldlstdir 是基于标的的字典
+        for undl in trdlstdir:                              # 清空所有交易单存储所在的文件夹，避免前一日的交易单对今天造成影响
             clear_dir(trdlstdir[undl])
-        self.trdlist = {}
-        self.handlstdir = handlstdir
-        for undl in self.handlstdir:
+        self.trdlist = {}                                    # 初始化交易单子
+        self.handlstdir = handlstdir                         # 手动交易单子路径
+        for undl in self.handlstdir:                        # 清空手动交易单子路径
             clear_dir(handlstdir[undl])
-        self.handlist = {}
-        Portfolio.REGED_NUM += 1
-        self.regid = Portfolio.REGED_NUM
-        Portfolio.REGI_OBJ.append(self)
-        self.plotid = 0
-        if not self.noposition: # 交易开始前就有持仓的情况下，加入holdlist, 当天开始时无持仓则不必
+        self.handlist = {}                                   # 初始化手动交易单子
+        self.databasedir = databasedir                       # 存储每日持仓记录、交易记录的数据库 格式类似于hldlstdir 为基于标的的字典 ex. {'stocks':dir1,futures:dir2}
+        # Portfolio.REGED_NUM += 1                             # 对象实例 数量增加
+        # self.regid = Portfolio.REGED_NUM                     ################### 可能不需要
+        Portfolio.REGI_OBJ.append(self)                      # 将该实例对象添加到类的实例记录列表
+        self.plotid = 0                                      # 初始化该实例的plotid，如果需要画图的话该值应该为大于0的值，不需要的话则为0
+        if not self.noposition:                             # 交易开始前就有持仓的情况下，加入holdlist, 当天开始时无持仓则不必
             self.holdlist['T1'] = self.read_holdlist()
             if self.holdlist['T1']:
-                Portfolio.add_pool(self.holdlist['T1'],self.pofname)
-                Portfolio.PLOT_NUM += 1
-                self.plotid = Portfolio.PLOT_NUM
-                Portfolio.PLOT_OBJ[self.plotid] = [self,True]
+                Portfolio.add_pool(self.holdlist['T1'],self.pofname)    # 将持仓增加到 POOL中
+                Portfolio.PLOT_NUM += 1                                  # 有持仓则确定该对象需要画图，增加类需要的画图数目
+                self.plotid = Portfolio.PLOT_NUM                         # 设定 plotid 为第几个需要画的图
+                Portfolio.PLOT_OBJ[self.plotid] = [self,True]            # 第二个布尔值为画图开关，当停止画图时会被设置为False
 
 
     def get_pofvalue(self):
@@ -280,11 +268,11 @@ class Portfolio:
         return holdlist
 
     def update_holdlist(self,lst,type):
-        # 只有在有交易的时候才调用此函数 更新holdlist , 对象初始化时不必调用
+        """ 只有在有交易的时候才调用此函数 更新holdlist , 对象初始化时不必调用 """
         # 做多数量为正，做空数量为负 lst应为带有标的作为key的dict
         if type not in ('T0','T1'):
             raise Exception('Need to specify the type of holdlist to be updated!')
-        if len(lst) == 0:
+        if not lst:   # lst 为空
             return
         ts = 0  # 交易成本
         if type=='T1':     # 只在出场的时候更新T+1
