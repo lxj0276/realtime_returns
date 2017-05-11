@@ -93,12 +93,12 @@ class ClientToDatabase:
     def __init__(self,dbdir,pofname):
         self._dbdir = dbdir
         self._pofname = pofname
-        self._holdtbname = None
-        self.set_holdtbname()
+        self.holdtbname = None
+        self.setholdtbname()
 
-    def set_holdtbname(self,inputdate = None):
+    def setholdtbname(self,inputdate = None):
         """ 根据日期时间确定持仓表格名称，如果没有给定的话(input=None)则提取当前,input应该是datetime 格式 """
-        self._holdtbname = self._pofname + '_' + self.get_datetime(inputdate)
+        self.holdtbname = self._pofname + '_' + self.get_datetime(inputdate)
 
     def holdlist_to_db(self,tabledir,textvars,currencymark='币种',codemark='证券代码',replace=True):
         """ 将 一张 持仓表格 更新至数据库
@@ -106,7 +106,7 @@ class ClientToDatabase:
             currencymark 用于识别汇总情况表头 目前只有通达信终端才有 若找不到就不建立表格
             codemark 用于标识正表表头
         """
-        tablename = self._holdtbname
+        tablename = self.holdtbname
         with DatabaseConnect(self._dbdir) as conn:
             c = conn.cursor()
             with open(tabledir,'r') as fl:
@@ -158,23 +158,26 @@ class ClientToDatabase:
             else:  # 未能实现写入
                 print('Table '+tablename+' cannot read the main body, nothing writen !')
 
-    def trdlist_to_db(self):
-        pass
-
     def holdlist_format(self,titles,outdir):
         """ 从数据库提取画图所需格式的持仓信息，存储为 DataFrame, 输出到 csv
             titles 应为包含 证券代码 证券名称 证券数量 最新价格 的列表
             需要返回字段 : code, name, num, prc,val
         """
         # 过滤停牌股
-        tablename = self._holdtbname
+        tablename = self.holdtbname
         with DatabaseConnect(self._dbdir) as conn:
             exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename])
             holdings = pd.read_sql(exeline,conn)
             holdings.columns = ['code','name','num','prc']
+            # 剔除非股票持仓和零持仓代码
+            holdings = holdings[~ holdings['code'].isin(['131990','888880','SHRQ88','SHXGED','SZRQ88','SZXGED'])]
+            holdings = holdings[holdings['num']>0]
             holdings['val'] = holdings['num']*holdings['prc']
             holdings = holdings.sort_values(by=['code'],ascending=[1])
             holdings.to_csv(outdir,header = True,index=False)
+
+    def trdlist_to_db(self):
+        pass
 
     def trdlist_format(self):
         # 做多 数量为正、金额为正， 做空为负、金额为负， 价格恒正, 交易成本恒为负

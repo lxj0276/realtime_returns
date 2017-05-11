@@ -4,10 +4,10 @@ import os
 import time
 import threading
 
-import sqlite3
-import numpy as np
-from WindPy import w
 from gmsdk import md
+import numpy as np
+import sqlite3
+from WindPy import w
 
 from src.global_vars import *
 
