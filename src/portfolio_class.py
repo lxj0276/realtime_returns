@@ -35,9 +35,9 @@ class Portfolio:
     def update_undlpool(cls):
         """ 更新实例状态并画图 """
         data_subscribe(SUBSCRIBE_SOURCE)
-        today=dt.date.today()
-        start=dt.datetime(year=today.year, month=today.month,day=today.day,hour= 8,minute=30,second=0)
-        end=dt.datetime(year=today.year, month=today.month,day=today.day,hour= 19,minute=45,second=0)
+        today = dt.date.today()
+        start = START_TIME
+        end = END_TIME
         # 画图配置
         shape=calc_shape(len(Portfolio.REGI_OBJ))
         mpl.rcParams['font.sans-serif'] = ['SimHei'] #用来正常显示中文标签
@@ -156,10 +156,16 @@ class Portfolio:
 
     def get_trdstat(self):
         # 返回从cwstate.txt读取的内容，类型为np array
-        with open(self.cwstatus_dir,'r') as cwinfo:
-            temp = cwinfo.readlines()
-            contents_temp = [c.strip().split(',') for c in temp]
-            contents = [[float(c) for c in t] for t in contents_temp]
+        # with open(self.cwstatus_dir,'r') as cwinfo:
+        #     temp = cwinfo.readlines()
+        #     contents_temp = [c.strip().split(',') for c in temp]
+        #     contents = [[float(c) for c in t] for t in contents_temp]
+        contents = []
+        for strategy in self.cwstatus_dir:
+            with open(self.cwstatus_dir[strategy],'r') as cwinfo:
+                temp = cwinfo.readlines()
+                contents_temp = [c.strip().split(',') for c in temp]
+                [contents.append([float(c) for c in t]) for t in contents_temp]
         return np.array(contents)
 
     def flush_trdstat(self):
@@ -172,8 +178,7 @@ class Portfolio:
         totlevels = currtrdstat.shape[0]
         chglevels = calc_trd_levels(self.lasttrdstat[:,0],currtrdstat[:,0])
         if chglevels['holdlvs'] < totlevels:   # 持仓有变动
-            print('Trade: InLevels:%d -- OutLevels:%d -- HoldLevels:%d' %(chglevels['inlvs'],chglevels['outlvs'],chglevels['holdlvs']))
-            print('waiting for trading list ...')
+            print('%s : trade happend with InLevels:%d -- OutLevels:%d -- HoldLevels:%d' %(self.pofname,chglevels['inlvs'],chglevels['outlvs'],chglevels['holdlvs']))
             trdlst = self.read_trdlist()
             if not np.any(currtrdstat[:,0]): # 从有持仓变为空仓
                 if trdlst['out']:
@@ -183,9 +188,9 @@ class Portfolio:
                     self.noposition = True
                     statchg = -1
                     updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
-                    print('trading list found !')
+                    print('%s : trading list found : Out' % self.pofname)
                 else:
-                    print('waiting for trading list ...')
+                    print('%s : waiting for trading list ...' % self.pofname)
             #elif not np.any(self.lasttrdstat[:,0]): # 从无持仓变为有持仓
             elif self.noposition:
                 if trdlst['in']:
@@ -195,34 +200,34 @@ class Portfolio:
                     self.noposition = False
                     statchg = 1
                     updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
-                    print('trading list found !')
+                    print('%s : trading list found : In' % self.pofname)
                 else:
-                    print('waiting for trading list ...')
+                    print('%s : waiting for trading list ...' % self.pofname)
             else:  # 有持仓，且持仓变动
                 if chglevels['inlvs'] == 0:   # 只有卖出
                     if trdlst['out']:
                         self.update_holdlist(trdlst['out'],'T1')
                         updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
-                        print('trading list found !')
+                        print('%s : trading list found : Out' % self.pofname)
                     else:
-                        print('waiting for trading list ...')
+                        print('%s : waiting for trading list ...' % self.pofname)
                 elif chglevels['outlvs'] == 0: # 只有买入
                     if trdlst['in']:
                         self.update_holdlist(trdlst['in'],'T0')
                         Portfolio.add_pool(trdlst['in'],self.pofname)
                         updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
-                        print('trading list found !')
+                        print('%s : trading list found : In' % self.pofname)
                     else:
-                        print('waiting for trading list ...')
+                        print('%s : waiting for trading list ...' % self.pofname)
                 else:  # 买卖都有
                     if trdlst['in'] and trdlst['out']:
                         self.update_holdlist(trdlst['in'],'T0')
                         self.update_holdlist(trdlst['out'],'T1')
                         Portfolio.add_pool(trdlst['in'],self.pofname)
                         updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
-                        print('trading list found !')
+                        print('%s : trading list found : In & Out' % self.pofname)
                     else:
-                        print('waiting for trading list ...')
+                        print('%s : waiting for trading list ...' % self.pofname)
         if updtstat:  # 持仓更新成功，单子已经到达录入成功
             data_subscribe(SUBSCRIBE_SOURCE)
             self.lasttrdstat=currtrdstat
@@ -230,6 +235,7 @@ class Portfolio:
         return statchg
 
     def check_handtrd(self):
+        """ 扫描手动交易单子 """
         # 暂定为不断扫描handlst_dir
         hastrd = False
         handlst = self.read_trdlist(handtrd=True)
@@ -238,15 +244,17 @@ class Portfolio:
             Portfolio.add_pool(self.holdlist['T0'], self.pofname)
             self.noposition = False
             hastrd = True
+            print('%s : trading by hand found : In' % self.pofname)
         if handlst['out']:
             self.update_holdlist(handlst['out'], 'T1')
             hastrd = True
+            print('%s ：trading by hand found : Out' % self.pofname)
         if hastrd:  # 持仓更新成功，单子已经到达录入成功
             data_subscribe(SUBSCRIBE_SOURCE)
             time.sleep(Portfolio.CHARGE_TIME)
-            print('has handtrd in %s' % self.pofname)
 
-    def read_trdlist(self, handtrd = False):  # 返回 买入 卖出两个方向的单子
+    def read_trdlist(self, handtrd = False):
+        """ 读取标准格式的交易单子 ， 返回 买入 卖出两个方向的单子 """
         if handtrd:
             lst_dir = self.handlst_dir
             scanedlst = self.handlist
@@ -279,7 +287,10 @@ class Portfolio:
         return trdlist
 
     def read_holdlist(self):
-        # 返回字典结构,字典的key是各个不同品种的标的，如stocks\futures\options etc  注意 ： 此处不涉及 T0 T1
+        """ 读取标准格式的持仓单，
+            返回字典结构,字典的key是各个不同品种的标的，如stocks\futures\options etc
+            注意 ： 此处不涉及 T0 T1
+        """
         holdlist={}
         for k in self.holdlst_dir:
             holdlist[k] = pd.read_csv(self.holdlst_dir[k],encoding='gb2312',names=['code','name','num','prc','val'],header=1)
@@ -350,7 +361,8 @@ class Portfolio:
     def stopplot(self):
         Portfolio.PLOT_OBJ[self.plotid][1] = False
 
-    def update_object(self):  # 定时扫描交易状态 trdlist_dir 并更新 holdlist
+    def update_object(self):
+        """ 定时扫描交易状态 trdlist_dir handtrd_dir 并根据交易更新 holdlist，同时更新收益 """
         self.pofvalue = self.get_pofvalue()    # 更新总资产，应对当日转账情况
         self.check_handtrd()    # 检查手动交易
         statchg = self.flush_trdstat()

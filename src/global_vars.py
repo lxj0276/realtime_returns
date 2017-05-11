@@ -3,9 +3,13 @@ import datetime as dt
 UNDL_POOL = {'total':set([])}               # 数据结构 dict： {'total' : 所有标的 set , 'pofname1': {'stocks': set , 'futures': set , ...} , 'pofname2': {...} , ... }
 UNDL_POOL_INFO = {}                          # 存储以各个品种code为key的字典
 POOL_COLUMNS = ['rt_last']                 #rt_time,rt_pct_chg'
-SUBSCRIBE_SOURCE =  'goldmime_pull'                         #  'goldmime_pull'  'simulation'   'goldmine'  'wind'
+SUBSCRIBE_SOURCE =  'goldmine_pull'                         #  'goldmime_snapshot'  'simulation'   'goldmine'  'wind'
+PRE_THREADS = {}
 
-TODAY = date = str(dt.datetime.strftime(dt.date.today(),'%Y%m%d'))
+TODAY = str(dt.datetime.strftime(dt.date.today(),'%Y%m%d'))
+today = dt.date.today()
+START_TIME = dt.datetime(year=today.year, month=today.month,day=today.day,hour= 8,minute=30,second=0)
+END_TIME = dt.datetime(year=today.year, month=today.month,day=today.day,hour= 19,minute=45,second=0)
 
 TEXT_VARS = {'Baiquan1': {'stocks': ['备注','股东代码','证券代码','证券名称','资金帐号']},
              'Baiquan2': {'stocks': ['股东代码','证券代码','证券名称']},
