@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from WindPy import w
 
-from src.database import *
+from src.holding_generate import *
 from src.global_vars import *
 from src.help_functions import *
 
@@ -18,7 +18,6 @@ from src.help_functions import *
 
 class Portfolio:
 
-    FLUSH_CWSTAT = 1   # 画图更新时间将而 秒
     CHARGE_TIME = 1    # 当日交易添加到 POOL 后，等待的时间  是否必要？
     PLOT_OBJ = {}      # 需要画图的对象，结构为{plotid:[object, True/False]}
     REGI_OBJ = []      # 所有已创建的实例
@@ -48,7 +47,7 @@ class Portfolio:
         y = {}
         axes = {}
         while( end>= dt.datetime.now() >= start):
-            time.sleep(Portfolio.FLUSH_CWSTAT)
+            time.sleep(FLUSH_CWSTAT)
             for obj in Portfolio.REGI_OBJ:
                 obj.update_object()
             count = 1
@@ -165,7 +164,7 @@ class Portfolio:
             with open(self.cwstatus_dir[strategy],'r') as cwinfo:
                 temp = cwinfo.readlines()
                 contents_temp = [c.strip().split(',') for c in temp]
-                [contents.append([float(c) for c in t]) for t in contents_temp]
+                [contents.append([float(c) for c in t]) for t in contents_temp if len(t)==6]
         return np.array(contents)
 
     def flush_trdstat(self):
@@ -293,8 +292,11 @@ class Portfolio:
         """
         holdlist={}
         for k in self.holdlst_dir:
-            holdlist[k] = pd.read_csv(self.holdlst_dir[k],encoding='gb2312',names=['code','name','num','prc','val'],header=1)
-            holdlist[k].index = holdlist[k]['code'].tolist()
+            if os.path.exists(self.holdlst_dir[k]):
+                holdlist[k] = pd.read_csv(self.holdlst_dir[k],encoding='gb2312') #,names=['code','name','num','prc','val'],header=1)
+                holdlist[k].index = holdlist[k]['code'].tolist()
+            else:
+                print('%s : No holdlist dir for %s' %(self.pofname, k))
         return holdlist
 
     def update_holdlist(self,lst,type):
@@ -378,4 +380,4 @@ class Portfolio:
 
 
 if __name__ == '__main__':
-    print( pd.read_csv(r'E:\realtime_monitors\realtime_returns\lists_holding\BQ1\stocks\Baiquan1_20170510_afternoon.csv',encoding='gb2312') )
+    print( pd.read_csv(r'E:\realtime_monitors\realtime_returns\lists_holding\BQ1\stocks\Baiquan1_20170512_morning.csv',encoding='gb2312',header=1) )

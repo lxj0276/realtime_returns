@@ -1,31 +1,139 @@
 
-from src.base_class import *
+from src.inherited_class import *
+from src.portfolio_class import *
 
 
-if __name__=='__main__':
-    pofname1=u'组合1'
-    pofvalue1=820386
-    hldlstdir1={'stocks' : '.\BQ1ICLong20170421.csv'}
-    trdlstdir1={'stocks' : r'E:\realtime_monitors\realtime_returns\testfiles'}
-    cwstatusdir1=r'.\cwstate1.txt'
 
-    t1=portfolio(pofname1,pofvalue1,hldlstdir1,trdlstdir1,cwstatusdir1)
 
-    pofname2=u'组合2'
-    pofvalue2=820386
-    hldlstdir2={'stocks' : '.\BQ1ICLong20170421.csv'}
-    trdlstdir2={'stocks' : r'E:\realtime_monitors\realtime_returns\testfiles'}
-    cwstatusdir2=r'.\cwstate2.txt'
 
-    t2=portfolio(pofname2,pofvalue2,hldlstdir2,trdlstdir2,cwstatusdir2)
 
-    pofname3=u'组合3'
-    pofvalue3=820386
-    hldlstdir3={'stocks' : '.\BQ1ICLong20170421.csv'}
-    trdlstdir3={'stocks' : r'E:\realtime_monitors\realtime_returns\testfiles'}
-    cwstatusdir3=r'.\cwstate3.txt'
+pofname1 = 'Baiquan1'
+holdlstdir1 = {'stocks' : r'.\lists_holding\BQ1\stocks',
+              'futures': r'.\lists_holding\BQ1\futures'}
+trdlstdir1 = {'stocks' : r'.\lists_trading\BQ1\stocks',
+              'futures': r'.\lists_trading\BQ1\futures'}
+handlstdir1 = {'stocks' : r'.\lists_byhand\BQ1\stocks',
+              'futures': r'.\lists_byhand\BQ1\futures'}
+holddbdir1 = {'stocks' : r'.\products_database\BQ1\stocks\bq1_stocks.db',
+          'futures': r'.\products_database\BQ1\futures'}
+rawholddir1 = {'stocks' : r'.\raw_holdings\BQ1\stocks',
+              'futures': r'.\raw_holdings\BQ1\futures'}
+trddbdir1 = {'stocks' : r'.\products_database\BQ1\stocks',
+          'futures': r'.\products_database\BQ1\futures'}
+pofvaldir1 = r'.\pofvalues\BQ1\pofvalue.txt'
+cwstatusdir1 ={ 'Long': r'\\BQ1_ICLONG\cwstate\cwstate.txt',
+                'Hedge':r'\\BQ1_ICHEDGE\cwstate\cwstate.txt' }
 
-    t3=portfolio(pofname3,pofvalue3,hldlstdir3,trdlstdir3,cwstatusdir3)
 
-    portfolio.update_undlpool()
-    w.cancelRequest(0)
+pofname2 = 'Baiquan2'
+holdlstdir2 = {'stocks' : r'.\lists_holding\BQ2\stocks',
+              'futures': r'.\lists_holding\BQ2\futures'}
+trdlstdir2 = {'stocks' : r'.\lists_trading\BQ2\stocks',
+              'futures': r'.\lists_trading\BQ2\futures'}
+handlstdir2 = {'stocks' : r'.\lists_byhand\BQ2\stocks',
+              'futures': r'.\lists_byhand\BQ2\futures'}
+holddbdir2 = {'stocks' : r'.\products_database\BQ2\stocks\bq2_stocks',
+          'futures': r'.\products_database\BQ2\futures'}
+rawholddir2 = {'stocks' : r'.\raw_holdings\BQ2\stocks',
+              'futures': r'.\raw_holdings\BQ2\futures'}
+pofvaldir2 = r'.\pofvalues\BQ2\pofvalue.txt'
+cwstatusdir2 ={'Long':  r'\\BAIQUAN2TRD1\cwstate\cwstate.txt',
+               'Hedge': r'\\BAIQUAN2TRD2\cwstate\cwstate.txt'}
+
+
+pofname3 = 'Jinqu1'
+holdlstdir3 = {'stocks' : r'.\lists_holding\BQJQ1\stocks',
+              'futures': r'.\lists_holding\BQJQ1\futures\fut_temp.csv'}
+trdlstdir3 = {'stocks' : r'.\lists_trading\BQJQ1\stocks',
+              'futures': r'.\lists_trading\BQJQ1\futures'}
+handlstdir3 = {'stocks' : r'.\lists_byhand\BQJQ1\stocks',
+              'futures': r'.\lists_byhand\BQJQ1\futures'}
+holddbdir3 = {'stocks' : r'.\products_database\BQJQ1\stocks\jq1_stocks',
+          'futures': r'.\products_database\BQJQ1\futures'}
+rawholddir3 = {'stocks' : r'.\raw_holdings\BQJQ1\stocks',
+              'futures': r'.\raw_holdings\BQJQ1\futures'}
+pofvaldir3 = r'.\pofvalues\BQJQ1\pofvalue.txt'
+cwstatusdir3 ={'Long':  r'\\JQ1_ICLONG\cwstate\cwstate.txt'}
+
+
+pofname4 = 'Huijin1'
+holdlstdir4 = {'stocks' : r'.\lists_holding\BQHJ1\stocks',
+              'futures': r'.\lists_holding\BQHJ1\futures\fut_temp.csv'}
+trdlstdir4 = {'stocks' : r'.\lists_trading\BQHJ1\stocks',
+              'futures': r'.\lists_trading\BQHJ1\futures'}
+handlstdir4 = {'stocks' : r'.\lists_byhand\BQHJ1\stocks',
+              'futures': r'.\lists_byhand\BQHJ1\futures'}
+holddbdir4 = {'stocks' : r'.\products_database\BQHJ1\stocks\hj1_stocks',
+          'futures': r'.\products_database\BQHJ1\futures'}
+rawholddir4 = {'stocks' : r'.\raw_holdings\BQHJ1\stocks',
+              'futures': r'.\raw_holdings\BQHJ1\futures'}
+pofvaldir4 = r'.\pofvalues\BQHJ1\pofvalue.txt'
+cwstatusdir4 ={'Long':  r'\\HUIJIN2\cwstate\cwstate.txt'}
+
+
+pofname5 = 'Lishi1'
+holdlstdir5 = {'stocks' : r'.\lists_holding\BQLS1\stocks',
+              'futures': r'.\lists_holding\BQLS1\futures'}
+trdlstdir5 = {'stocks' : r'.\lists_trading\BQLS1\stocks',
+              'futures': r'.\lists_trading\BQLS1\futures'}
+handlstdir5 = {'stocks' : r'.\lists_byhand\BQLS1\stocks',
+              'futures': r'.\lists_byhand\BQLS1\futures'}
+holddbdir5 = {'stocks' : r'.\products_database\BQLS1\stocks\ls1_stocks',
+          'futures': r'.\products_database\BQLS1\futures'}
+rawholddir5 = {'stocks' : r'.\raw_holdings\BQLS1\stocks',
+              'futures': r'.\raw_holdings\BQLS1\futures'}
+pofvaldir5 = r'.\pofvalues\BQLS1\pofvalue.txt'
+cwstatusdir5 ={'Long':  r'\\BQLS1_TRADING1\cwstate\cwstate.txt',
+               'Hedge': r'\\BQLS1_TRADING2\cwstate\cwstate.txt'}
+
+
+pofname6 = 'Guodao2'
+holdlstdir6 = {'stocks' : r'.\lists_holding\GDLS2\stocks',
+              'futures': r'.\lists_holding\GDLS2\futures'}
+trdlstdir6 = {'stocks' : r'.\lists_trading\GDLS2\stocks',
+              'futures': r'.\lists_trading\GDLS2\futures'}
+handlstdir6 = {'stocks' : r'.\lists_byhand\GDLS2\stocks',
+              'futures': r'.\lists_byhand\GDLS2\futures'}
+holddbdir6 = {'stocks' : r'.\products_database\GDLS2\stocks\gd2_stocks',
+          'futures': r'.\products_database\GDLS2\futures'}
+rawholddir6 = {'stocks' : r'.\raw_holdings\GDLS2\stocks',
+              'futures': r'.\raw_holdings\GDLS2\futures'}
+pofvaldir6 = r'.\pofvalues\GDLS2\pofvalue.txt'
+cwstatusdir6 ={'Long':  r'\\GD2_ICLONG\cwstate\cwstate.txt',
+               'Hedge': r'\\TRADING5\cwstate\cwstate.txt'}
+
+
+# pofname7 = u'煊鼎鑫诚九号'
+# holdlstdir7 = {'stocks' : r'.\lists_holding\XDXC9\stocks',
+#               'futures': r'.\lists_holding\XDXC9\futures'}
+# trdlstdir7 = {'stocks' : r'.\lists_trading\XDXC9\stocks',
+#               'futures': r'.\lists_trading\XDXC9\futures'}
+# handlstdir7 = {'stocks' : r'.\lists_byhand\XDXC9\stocks',
+#               'futures': r'.\lists_byhand\XDXC9\futures'}
+# holddbdir7 = {'stocks' : r'.\products_database\XDXC9\stocks\test.db',
+#           'futures': r'.\products_database\XDXC9\futures'}
+# rawholddir7 = {'stocks' : r'.\raw_holdings\XDXC9\stocks',
+#               'futures': r'.\raw_holdings\XDXC9\futures'}
+# pofvaldir7 = r'.\pofvalues\XDXC9\pofvalue.txt'
+
+
+
+obj_bq1 = Products(pofname=pofname1,pofval_dir=pofvaldir1,holdlst_dir=holdlstdir1,trdlst_dir=trdlstdir1,handlst_dir=handlstdir1,
+               cwstatus_dir=cwstatusdir1,rawhold_dir=rawholddir1,rawtrd_dir='',holddb_dir=holddbdir1,trddb_dir='')
+
+obj_bq2 = Products(pofname=pofname2,pofval_dir=pofvaldir2,holdlst_dir=holdlstdir2,trdlst_dir=trdlstdir2,handlst_dir=handlstdir2,
+               cwstatus_dir=cwstatusdir2,rawhold_dir=rawholddir2,rawtrd_dir='',holddb_dir=holddbdir2,trddb_dir='')
+
+obj_jq1 = Products(pofname=pofname3,pofval_dir=pofvaldir3,holdlst_dir=holdlstdir3,trdlst_dir=trdlstdir3,handlst_dir=handlstdir3,
+               cwstatus_dir=cwstatusdir3,rawhold_dir=rawholddir3,rawtrd_dir='',holddb_dir=holddbdir3,trddb_dir='')
+
+obj_hj1 = Products(pofname=pofname4,pofval_dir=pofvaldir4,holdlst_dir=holdlstdir4,trdlst_dir=trdlstdir4,handlst_dir=handlstdir4,
+               cwstatus_dir=cwstatusdir4,rawhold_dir=rawholddir4,rawtrd_dir='',holddb_dir=holddbdir4,trddb_dir='')
+
+obj_ls1 = Products(pofname=pofname5,pofval_dir=pofvaldir5,holdlst_dir=holdlstdir5,trdlst_dir=trdlstdir5,handlst_dir=handlstdir5,
+               cwstatus_dir=cwstatusdir5,rawhold_dir=rawholddir5,rawtrd_dir='',holddb_dir=holddbdir5,trddb_dir='')
+
+obj_gd2 = Products(pofname=pofname6,pofval_dir=pofvaldir6,holdlst_dir=holdlstdir6,trdlst_dir=trdlstdir6,handlst_dir=handlstdir6,
+               cwstatus_dir=cwstatusdir6,rawhold_dir=rawholddir6,rawtrd_dir='',holddb_dir=holddbdir6,trddb_dir='')
+
+Portfolio.update_undlpool()
