@@ -117,6 +117,21 @@ cwstatusdir6 ={'Long':  r'\\GD2_ICLONG\cwstate\cwstate.txt',
 # pofvaldir7 = r'.\pofvalues\XDXC9\pofvalue.txt'
 
 
+temptrans = {'bq1':['BQ1','Baiquan1'],
+             'bq2':['BQ2','Baiquan2'],
+             'jq1':['BQJQ1','Jinqu1'],
+             'hj1':['BQHJ1','Huijin1'],
+             'ls1':['BQLS1','Lishi1'],
+             'gd2':['GDLS2','Guodao2']
+             }
+
+fromdir = r'E:\calc_dividend\holding_gen\rawholding'
+todir = r'E:\realtime_monitors\realtime_returns\raw_holdings'
+for p in temptrans:
+    fromfile = os.path.join(fromdir,p,''.join([p,'_',TODAY,'.csv']))
+    tofile = os.path.join(todir,temptrans[p][0],'stocks',''.join([temptrans[p][1],'_positions_stocks_',TODAY,'.csv']))
+    os.system('copy %s %s ' %(fromfile,tofile))
+
 
 obj_bq1 = Products(pofname=pofname1,pofval_dir=pofvaldir1,holdlst_dir=holdlstdir1,trdlst_dir=trdlstdir1,handlst_dir=handlstdir1,
                cwstatus_dir=cwstatusdir1,rawhold_dir=rawholddir1,rawtrd_dir='',holddb_dir=holddbdir1,trddb_dir='')
