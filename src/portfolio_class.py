@@ -22,7 +22,7 @@ class Portfolio:
     PLOT_OBJ = {}      # 需要画图的对象，结构为{plotid:[object, True/False]}
     REGI_OBJ = []      # 所有已创建的实例
     PLOT_NUM = 0       # 需要画图的数量
-    # REGED_NUM = 0      # 创建过的实力的数量
+    # REGED_NUM = 0      # 创建过的实例的数量
     FIGDIR = r'.\saved_figures'   # 图像存储路径
 
     global UNDL_POOL           # 存储所有需要更新的标的代码，其结构见 add_pool 函数
@@ -48,8 +48,11 @@ class Portfolio:
         axes = {}
         while( end>= dt.datetime.now() >= start):
             time.sleep(FLUSH_CWSTAT)
+            t1=time.time()
             for obj in Portfolio.REGI_OBJ:
                 obj.update_object()
+            t2=time.time()
+            print('time1: %f',t2-t1)
             count = 1
             for id in sorted( Portfolio.PLOT_OBJ ):    #  Portfolio.PLOT_OBJ 是以增加过的画图 obj 的 regid
                 plobj = Portfolio.PLOT_OBJ[id]
@@ -71,11 +74,16 @@ class Portfolio:
                 axes[obj].set_xlim(x[obj][0], x[obj][-1])
                 plt.pause(0.01)
                 count +=1
+            t3=time.time()
+            print('time2 %f',t3-t2)
             for id in sorted(Portfolio.PLOT_OBJ):
                 plobj = Portfolio.PLOT_OBJ[id]
                 obj = plobj[0]
                 axes[obj].legend(('return : %.4f%%' % y[obj][-1],))
                 axes[obj].plot(x[obj][1:], y[obj][1:], linewidth=1, color='r')
+            t4=time.time()
+            print('time3 %f',t4-t3)
+            print(len(UNDL_POOL_INFO))
         print('plot finished')
         plt.savefig(os.path.join(Portfolio.FIGDIR,str(today)+'.png'))
 
@@ -146,6 +154,7 @@ class Portfolio:
                 Portfolio.PLOT_NUM += 1                                  # 有持仓则确定该对象需要画图，增加类需要的画图数目
                 self.plotid = Portfolio.PLOT_NUM                         # 设定 plotid 为第几个需要画的图
                 Portfolio.PLOT_OBJ[self.plotid] = [self,True]            # 第二个布尔值为画图开关，当停止画图时会被设置为False
+        print(' %s portfolio created ! ' % self.pofname)
 
 
     def get_pofvalue(self):

@@ -8,7 +8,7 @@ UNDL_POOL_INFO = {}                          # 存储以各个品种code为key�
 POOL_COLUMNS = ['rt_last']                 #rt_time,rt_pct_chg'
 SUBSCRIBE_SOURCE =  'simulation'                         #  'goldmime_snapshot'  'simulation'   'goldmine'  'wind'
 PRE_THREADS = {}
-FLUSH_CWSTAT = 0.05   # 画图更新时间将而 秒
+FLUSH_CWSTAT = 1   # 画图更新时间间隔 秒
 
 TODAY = str(dt.datetime.strftime(dt.date.today(),'%Y%m%d'))
 today = dt.date.today()
@@ -33,13 +33,13 @@ HOLD_VARS = {'Baiquan1': {'stocks': ['证券代码','证券名称','参考持股
              'Lishi1':   {'stocks': ['证券代码','证券名称','当前拥股','最新价']},
              }
 
-tempprc = 5823.4
-FUTURES_INFO = { 'Baiquan1': {'init_cash': 1015691.21,
-                              'IC1705.CFE': { 'settle': tempprc, 'trdside': -1,'multiplier': 200, 'enterprc':np.array([5823.4]),'enternum':np.array([4]) } },
-                 'Baiquan2': {'init_cash': 1730565.17,
-                              'IC1705.CFE': { 'settle': tempprc, 'trdside': -1,'multiplier': 200, 'enterprc':np.array([5823.4]),'enternum':np.array([6]) } },
-                 'Guodao2': {'init_cash': 1699423.66,
-                             'IC1705.CFE': { 'settle': tempprc, 'trdside': -1,'multiplier': 200, 'enterprc':np.array([5823.4]),'enternum':np.array([6]) } },
-                 'Lishi1': {'init_cash': 2670320.78,
-                            'IC1705.CFE': { 'settle': tempprc, 'trdside': -1,'multiplier': 200, 'enterprc':np.array([5823.4]),'enternum':np.array([8]) } }
-                 }
+tempprc = 5876.6
+FUTURES_INFO = {'Baiquan1':{'tot_value': 2440623.73 ,
+                             'IC1705.CFE': { 'settle': tempprc, 'trdside': -1,'multiplier': 200,'holdnum':np.array([4]) } },
+                'Baiquan2':{'tot_value': 3872192.93 ,
+                             'IC1705.CFE': { 'settle': tempprc, 'trdside': -1,'multiplier': 200,'holdnum':np.array([6]) } },
+                'Guodao2' :{'tot_value': 3836095.6,
+                            'IC1705.CFE': { 'settle': tempprc, 'trdside': -1,'multiplier': 200, 'holdnum':np.array([6]) } },
+                'Lishi1'  :{'tot_value': 8692398.98,
+                           'IC1705.CFE': { 'settle': tempprc, 'trdside': -1,'multiplier': 200, 'holdnum':np.array([16]) } }
+                }
