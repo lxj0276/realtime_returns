@@ -20,7 +20,7 @@ rawholddir1 = {'stocks' : r'.\raw_holdings\BQ1\stocks',
               'futures': r'.\raw_holdings\BQ1\futures'}
 trddbdir1 = {'stocks' : r'.\products_database\BQ1\stocks',
           'futures': r'.\products_database\BQ1\futures'}
-pofvaldir1 = r'.\pofvalues\BQ1\pofvalue.txt'
+pofvaldir1 = r'.\pofvalues\BQ1'
 cwstatusdir1 ={ 'Long': r'\\BQ1_ICLONG\cwstate\cwstate.txt',
                 'Hedge':r'\\BQ1_ICHEDGE\cwstate\cwstate.txt' }
 
@@ -36,7 +36,7 @@ holddbdir2 = {'stocks' : r'.\products_database\BQ2\stocks\bq2_stocks',
           'futures': r'.\products_database\BQ2\futures'}
 rawholddir2 = {'stocks' : r'.\raw_holdings\BQ2\stocks',
               'futures': r'.\raw_holdings\BQ2\futures'}
-pofvaldir2 = r'.\pofvalues\BQ2\pofvalue.txt'
+pofvaldir2 = r'.\pofvalues\BQ2'
 cwstatusdir2 ={'Long':  r'\\BAIQUAN2TRD1\cwstate\cwstate.txt',
                'Hedge': r'\\BAIQUAN2TRD2\cwstate\cwstate.txt'}
 
@@ -52,7 +52,7 @@ holddbdir3 = {'stocks' : r'.\products_database\BQJQ1\stocks\jq1_stocks',
           'futures': r'.\products_database\BQJQ1\futures'}
 rawholddir3 = {'stocks' : r'.\raw_holdings\BQJQ1\stocks',
               'futures': r'.\raw_holdings\BQJQ1\futures'}
-pofvaldir3 = r'.\pofvalues\BQJQ1\pofvalue.txt'
+pofvaldir3 = r'.\pofvalues\BQJQ1'
 cwstatusdir3 ={'Long':  r'\\JQ1_ICLONG\cwstate\cwstate.txt'}
 
 
@@ -67,7 +67,7 @@ holddbdir4 = {'stocks' : r'.\products_database\BQHJ1\stocks\hj1_stocks',
           'futures': r'.\products_database\BQHJ1\futures'}
 rawholddir4 = {'stocks' : r'.\raw_holdings\BQHJ1\stocks',
               'futures': r'.\raw_holdings\BQHJ1\futures'}
-pofvaldir4 = r'.\pofvalues\BQHJ1\pofvalue.txt'
+pofvaldir4 = r'.\pofvalues\BQHJ1'
 cwstatusdir4 ={'Long':  r'\\HUIJIN2\cwstate\cwstate.txt'}
 
 
@@ -82,7 +82,8 @@ holddbdir5 = {'stocks' : r'.\products_database\BQLS1\stocks\ls1_stocks',
           'futures': r'.\products_database\BQLS1\futures'}
 rawholddir5 = {'stocks' : r'.\raw_holdings\BQLS1\stocks',
               'futures': r'.\raw_holdings\BQLS1\futures'}
-pofvaldir5 = r'.\pofvalues\BQLS1\pofvalue.txt'
+pofvaldir5 = r'.\pofvalues\BQLS1'
+poftxt5 = r'E:\realtime_monitors\realtime_returns\pofvalues_help\Lishi1_stocks_pofvalue.txt'
 cwstatusdir5 ={'Long':  r'\\BQLS1_TRADING1\cwstate\cwstate.txt',
                'Hedge': r'\\BQLS1_TRADING2\cwstate\cwstate.txt'}
 
@@ -98,7 +99,7 @@ holddbdir6 = {'stocks' : r'.\products_database\GDLS2\stocks\gd2_stocks',
           'futures': r'.\products_database\GDLS2\futures'}
 rawholddir6 = {'stocks' : r'.\raw_holdings\GDLS2\stocks',
               'futures': r'.\raw_holdings\GDLS2\futures'}
-pofvaldir6 = r'.\pofvalues\GDLS2\pofvalue.txt'
+pofvaldir6 = r'.\pofvalues\GDLS2'
 cwstatusdir6 ={'Long':  r'\\GD2_ICLONG\cwstate\cwstate.txt',
                'Hedge': r'\\TRADING5\cwstate\cwstate.txt'}
 
@@ -125,10 +126,12 @@ temptrans = {'bq1':['BQ1','Baiquan1'],
              'gd2':['GDLS2','Guodao2']
              }
 
-fromdir = r'E:\calc_dividend\holding_gen\rawholding'
+#fromdir = r'E:\calc_dividend\holding_gen\rawholding'
+fromdir = r'C:\Users\Jiapeng\Desktop\新建文件夹'
 todir = r'E:\realtime_monitors\realtime_returns\raw_holdings'
 for p in temptrans:
-    fromfile = os.path.join(fromdir,p,''.join([p,'_',TODAY,'.csv']))
+    #fromfile = os.path.join(fromdir,p,''.join([p,'_',TODAY,'.csv']))
+    fromfile = os.path.join(fromdir,''.join([p,'_',TODAY,'.csv']))
     tofile = os.path.join(todir,temptrans[p][0],'stocks',''.join([temptrans[p][1],'_positions_stocks_',TODAY,'.csv']))
     os.system('copy %s %s ' %(fromfile,tofile))
 
@@ -146,9 +149,10 @@ obj_hj1 = Products(pofname=pofname4,pofval_dir=pofvaldir4,holdlst_dir=holdlstdir
                cwstatus_dir=cwstatusdir4,rawhold_dir=rawholddir4,rawtrd_dir='',holddb_dir=holddbdir4,trddb_dir='')
 
 obj_ls1 = Products(pofname=pofname5,pofval_dir=pofvaldir5,holdlst_dir=holdlstdir5,trdlst_dir=trdlstdir5,handlst_dir=handlstdir5,
-               cwstatus_dir=cwstatusdir5,rawhold_dir=rawholddir5,rawtrd_dir='',holddb_dir=holddbdir5,trddb_dir='')
+               cwstatus_dir=cwstatusdir5,rawhold_dir=rawholddir5,rawtrd_dir='',holddb_dir=holddbdir5,trddb_dir='',othersource=poftxt5)
 
 obj_gd2 = Products(pofname=pofname6,pofval_dir=pofvaldir6,holdlst_dir=holdlstdir6,trdlst_dir=trdlstdir6,handlst_dir=handlstdir6,
                cwstatus_dir=cwstatusdir6,rawhold_dir=rawholddir6,rawtrd_dir='',holddb_dir=holddbdir6,trddb_dir='')
 
-Portfolio.update_undlpool()
+
+#Portfolio.update_undlpool()
