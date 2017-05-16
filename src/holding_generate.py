@@ -104,10 +104,11 @@ class ClientToDatabase:
         self.holdtbname = self._pofname + '_' + self.get_datetime(inputdate)
 
     def holdlist_to_db(self,tabledir,textvars,currencymark='币种',codemark='证券代码',replace=True,tablename=None):
-        """ 将 一张 持仓表格 更新至数据库
+        """ 将一张软件端导出的 持仓表格 更新至数据库
             textvars 存储数据库格式为TEXT的字段
             currencymark 用于识别汇总情况表头 目前只有通达信终端才有 若找不到就不建立表格
             codemark 用于标识正表表头
+            tablename 表格存储在数据库中的名称
         """
         if not tablename:
             tablename = self.holdtbname
@@ -163,7 +164,8 @@ class ClientToDatabase:
                 print('Table '+tablename+' cannot read the main body, nothing writen !')
 
     def holdlist_format(self,titles,outdir,tablename=None):
-        """ 从数据库提取画图所需格式的持仓信息，存储为 DataFrame, 输出到 csv
+        """ 从数据库提取画图所需格式的持仓信息，tablename 未提取的表格的名称
+            存储为 DataFrame, 输出到 csv
             titles 应为包含 证券代码 证券名称 证券数量 最新价格 的列表
             需要返回字段 : code, name, num, prc,val
         """
@@ -185,12 +187,59 @@ class ClientToDatabase:
             holdings = holdings.sort_values(by=['code'],ascending=[1])
             holdings.to_csv(outdir,header = True,index=False)
 
-    def trdlist_to_db(self):
-        pass
+    def get_totvalue(self,titles,tablename,othersource):
+        """ 提取 客户端软件 对应的总资产 """
+        if not titles:    # 客户端持仓表格没有资产信息，需要从其他源（手填）提取
+            with open(othersource,'r') as pof:
+                totval = float(pof.readlines()[0].strip())
+        else:
+            with DatabaseConnect(self._dbdir) as conn:
+                exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename+'_summary'])
+                values = conn.execute(exeline).fetchall()
+                totval = np.sum(values[0])
+        return totval
 
-    def trdlist_format(self):
-        # 做多 数量为正、金额为正， 做空为负、金额为负， 价格恒正, 交易成本恒为负
-        # 返回项 : windcode, name, num, prc,val,transaction_cost, inout
+    def trdlist_to_db(self,textvars,tabledir,tablename=None,codemark='证券代码',replace=True):
+        """ 将一张软件端导出的 交易/委托表格 更新至数据库
+            textvars 存储数据库格式为TEXT的字段
+            codemark 用于标识正表表头
+            tablename 表格存储在数据库中的名称
+        """
+        if not tablename:
+            rec_time = dt.datetime.now().strftime('%Y%m%d %H%m%s')
+            tablename = ''.join([self._pofname,'_trading_',rec_time])
+        with DatabaseConnect(self._dbdir) as conn:
+            c = conn.cursor()
+            with open(tabledir,'r') as fl:
+                rawline = fl.readline()
+                startwrite = False
+                while rawline:
+                    line = rawline.strip().split(',')
+                    if not startwrite:     # 寻找到正文开始标题后才开始写入
+                        if codemark in line:  #寻找正表标题
+                            titles = line
+                            codepos = titles.index(codemark)
+                            titlecheck = ClientToDatabase.gen_table_titles(titles,{'TEXT':textvars})
+                            titletrans = titlecheck['typed_titles']
+                            # title_empty = titlecheck['empty_pos']   # 此处尤其暗藏风险，假设正表数据没有空列
+                            ClientToDatabase.create_db_table(c,tablename,titletrans,replace)
+                            rawline = fl.readline()
+                            startwrite = True
+                            continue
+                    else:  # 已经找到了标题
+                        exeline = ''.join(['INSERT INTO ', tablename, ' VALUES (', ','.join(['?']*len(line)), ')'])
+                        line[codepos] = undl_backfix(line[codepos])   # 增加 .SZ ,.SH 等证券后缀
+                        c.execute(exeline, line)
+                        conn.commit()
+                    rawline = fl.readline()
+
+    def trdlist_format(self,titles,outdir,tablename=None):
+        """ 从数据库提取画图所需格式的 交易 信息，tablename 未提取的表格的名称
+            存储为 DataFrame, 输出到 csv
+            titles 应为包含 的列表
+            需要返回字段 : code, name, num, prc,val,transaction_cost,inout
+            做多 数量为正、金额为正， 做空为负、金额为负， 价格恒正, 交易成本恒为负
+        """
         pass
 
 

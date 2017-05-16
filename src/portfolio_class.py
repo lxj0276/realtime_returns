@@ -48,11 +48,11 @@ class Portfolio:
         axes = {}
         while( end>= dt.datetime.now() >= start):
             time.sleep(FLUSH_CWSTAT)
-            t1=time.time()
+            #t1=time.time()
             for obj in Portfolio.REGI_OBJ:
                 obj.update_object()
-            t2=time.time()
-            print('time1: %f',t2-t1)
+            #t2=time.time()
+            #print('time1: %f',t2-t1)
             count = 1
             for id in sorted( Portfolio.PLOT_OBJ ):    #  Portfolio.PLOT_OBJ 是以增加过的画图 obj 的 regid
                 plobj = Portfolio.PLOT_OBJ[id]
@@ -74,15 +74,15 @@ class Portfolio:
                 axes[obj].set_xlim(x[obj][0], x[obj][-1])
                 plt.pause(0.01)
                 count +=1
-            t3=time.time()
-            print('time2 %f',t3-t2)
+            #t3=time.time()
+            #print('time2 %f',t3-t2)
             for id in sorted(Portfolio.PLOT_OBJ):
                 plobj = Portfolio.PLOT_OBJ[id]
                 obj = plobj[0]
                 axes[obj].legend(('return : %.4f%%' % y[obj][-1],))
                 axes[obj].plot(x[obj][1:], y[obj][1:], linewidth=1, color='r')
-            t4=time.time()
-            print('time3 %f',t4-t3)
+            #t4=time.time()
+            #print('time3 %f',t4-t3)
             print(len(UNDL_POOL_INFO))
         print('plot finished')
         plt.savefig(os.path.join(Portfolio.FIGDIR,str(today)+'.png'))
@@ -127,10 +127,10 @@ class Portfolio:
 
     def __init__(self,pofname,pofval_dir,holdlst_dir,trdlst_dir,handlst_dir,cwstatus_dir):
         self.pofname = pofname                               # 产品名称
-        self.pofval_dir = pofval_dir                           # 产品资产存储文件路径
+        self.pofval_dir = os.path.join(pofval_dir,'pofvalue.txt')     # 产品资产存储文件路径
         self.pofvalue = self.get_pofvalue()                  # 初始化总资产
         self.cwstatus_dir = cwstatus_dir                       # 交易状态文件路径
-        self.lasttrdstat = self.get_trdstat()                # 初始化交易状态
+        self.lasttrdstat = self.get_trdstat(predaystat=True)       # 初始化交易状态,使用前一日的cwstate交易状态，改文件路径可由cwstate路径推出
         self.noposition = not np.any(self.lasttrdstat[:,0])  # 检查是否有持仓
         self.addvalue = {'fixed':0 ,'floated':0 }          # 组合收益数值，若在当天出场则为fixed收益，否则为floated
         self.holdlst_dir = holdlst_dir                           # 组合持仓文件路径，数据结构为 基于标的的字典 ex. {'stocks':_dir1,futures:_dir2}
@@ -159,18 +159,20 @@ class Portfolio:
 
     def get_pofvalue(self):
         with open(self.pofval_dir, 'r') as pofinfo:
-            val = float(pofinfo.readlines()[0])
+            val = float(pofinfo.readlines()[0].strip())
         return val
 
-    def get_trdstat(self):
-        # 返回从cwstate.txt读取的内容，类型为np array
-        # with open(self.cwstatus_dir,'r') as cwinfo:
-        #     temp = cwinfo.readlines()
-        #     contents_temp = [c.strip().split(',') for c in temp]
-        #     contents = [[float(c) for c in t] for t in contents_temp]
+    def get_trdstat(self,predaystat=False):
+        """ 返回从cwstate.txt读取的内容，类型为np array
+            如果需要前一日的交易状态，则需从当前cwstate路径推出前一日交易状态的路径
+            可以这样推是因为目前cwstate_history 文件夹 和 cwstate.txt 在同一目录下 ！
+        """
         contents = []
         for strategy in self.cwstatus_dir:
-            with open(self.cwstatus_dir[strategy],'r') as cwinfo:
+            cwdir = self.cwstatus_dir[strategy]
+            if predaystat:   # 提取前一日交易状态路径
+                cwdir = cwdir.replace('cwstate.txt',''.join(['cwstate_history\cwstate_',YESTERDAY,'.txt']))
+            with open(cwdir,'r') as cwinfo:
                 temp = cwinfo.readlines()
                 contents_temp = [c.strip().split(',') for c in temp]
                 [contents.append([float(c) for c in t]) for t in contents_temp if len(t)==6]
