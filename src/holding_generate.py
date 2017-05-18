@@ -63,15 +63,20 @@ class ClientToDatabase:
         typed_titles = []
         empty_pos = []
         for tvar in titles:
+            typed = False
             for tp in varstypes:
                 if tvar in varstypes[tp]:
-                    typed_titles.append(tvar.strip('(%)')+' '+tp)
+                    typed_titles.append(''.join([tvar.strip('(%)'),' ',tp]))
                     empty_pos.append(False)
+                    typed = True
+                    break
                 elif tvar == '':
                     empty_pos.append(True)
-                else:
-                    typed_titles.append(tvar.strip('(%)')+' '+defaluttype)
-                    empty_pos.append(False)
+                    typed = True
+                    break
+            if not typed:
+                typed_titles.append(''.join([tvar.strip('(%)'),' ',defaluttype]))
+                empty_pos.append(False)
         return {'typed_titles':typed_titles,'empty_pos':empty_pos}
 
     @classmethod # 可以升级为模块方法与其他任务共享
@@ -89,8 +94,10 @@ class ClientToDatabase:
                     cursor.execute(''.join(['DROP TABLE ',tablename]))
                     cursor.execute(exeline)
                     print('Table '+tablename+' created!')
+                    return True
                 else:
                     print('Table '+tablename+' already exists!')
+                    return False
             else:
                 raise e
         else:
@@ -102,6 +109,7 @@ class ClientToDatabase:
         self._pofname = pofname
         self.holdtbname = None
         self.setholdtbname()
+        self.last_output_line = 0
 
     def setholdtbname(self,inputdate = None):
         """ 根据日期时间确定持仓表格名称，如果没有给定的话(input=None)则提取当前,input应该是datetime 格式 """
@@ -174,10 +182,6 @@ class ClientToDatabase:
             需要返回字段 : code, name, num, prc,val
         """
         # 逆回购 理财产品等
-        refound_sz = ['131810','131811','131800','131809','131801','131802','131803','131805','131806']
-        refound_sh = ['204001','204007','204002','204003','204004','204014','204028','204091','204182']
-        other_vars = ['131990','888880','SHRQ88','SHXGED','SZRQ88','SZXGED','511990']
-        tofilter = refound_sz+refound_sh+other_vars
         if not tablename:
             tablename = self.holdtbname
         with DatabaseConnect(self._dbdir) as conn:
@@ -185,7 +189,7 @@ class ClientToDatabase:
             holdings = pd.read_sql(exeline,conn)
             holdings.columns = ['code','name','num','prc']
             # 剔除非股票持仓和零持仓代码
-            holdings = holdings[~ holdings['code'].isin(tofilter)]
+            holdings = holdings[~ holdings['code'].isin(HOLD_FILTER)]
             holdings = holdings[holdings['num']>0]
             holdings['val'] = holdings['num']*holdings['prc']
             holdings = holdings.sort_values(by=['code'],ascending=[1])
@@ -203,7 +207,7 @@ class ClientToDatabase:
                 totval = np.sum(values[0])
         return totval
 
-    def trdlist_to_db(self,textvars,tabledir,tablename=None,codemark='证券代码',replace=True):
+    def trdlist_to_db(self,textvars,tabledir,tablename=None,codemark='证券代码',replace=False):
         """ 将一张软件端导出的 交易/委托表格 更新至数据库
             textvars 存储数据库格式为TEXT的字段
             codemark 用于标识正表表头
@@ -216,26 +220,34 @@ class ClientToDatabase:
             c = conn.cursor()
             with open(tabledir,'r') as fl:
                 rawline = fl.readline()
-                startwrite = False
+                foundtitle = False
+                linecount = 0
+                processed_lines = 0
                 while rawline:
                     line = rawline.strip().split(',')
-                    if not startwrite:     # 寻找到正文开始标题后才开始写入
+                    if not foundtitle:     # 寻找到正文开始标题后才开始写入
                         if codemark in line:  #寻找正表标题
                             titles = line
-                            codepos = titles.index(codemark)
+                            codepos = titles.index(codemark) + 1
                             titlecheck = ClientToDatabase.gen_table_titles(titles,{'TEXT':textvars})
-                            titletrans = titlecheck['typed_titles']
+                            titletrans = ['row_id INTEGER']+titlecheck['typed_titles']
                             # title_empty = titlecheck['empty_pos']   # 此处尤其暗藏风险，假设正表数据没有空列
-                            ClientToDatabase.create_db_table(c,tablename,titletrans,replace)
+                            newcreated = ClientToDatabase.create_db_table(c,tablename,titletrans,replace)
+                            if not newcreated:
+                                processed_lines = c.execute(''.join(['SELECT COUNT(',codemark,') FROM ',tablename])).fetchall()[0][0]
                             rawline = fl.readline()
-                            startwrite = True
+                            foundtitle = True
                             continue
                     else:  # 已经找到了标题
-                        exeline = ''.join(['INSERT INTO ', tablename, ' VALUES (', ','.join(['?']*len(line)), ')'])
-                        line[codepos] = undl_backfix(line[codepos])   # 增加 .SZ ,.SH 等证券后缀
-                        c.execute(exeline, line)
-                        conn.commit()
+                        linecount += 1
+                        if linecount>processed_lines:
+                            line = [linecount]+line
+                            exeline = ''.join(['INSERT INTO ', tablename, ' VALUES (', ','.join(['?']*len(line)), ')'])
+                            line[codepos] = undl_backfix(line[codepos])   # 增加 .SZ ,.SH 等证券后缀
+                            c.execute(exeline, line)
+                            conn.commit()
                     rawline = fl.readline()
+                print('%d lines updated to trading recorder database' %(linecount-processed_lines,))
 
     def trdlist_format(self,titles,outdir,tablename,tscostrate):
         """ 从数据库提取画图所需格式的 交易 信息，tablename 未提取的表格的名称
@@ -261,7 +273,7 @@ class ClientToDatabase:
             else:
                 return -tscostrate
         with DatabaseConnect(self._dbdir) as conn:
-            exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename])
+            exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename,' WHERE row_id >',str(self.last_output_line)])
             trades = pd.read_sql(exeline,conn)
             trades.columns = ['code','name','num','prc','inout']
             # 剔除非股票持仓和零持仓代码
@@ -273,9 +285,10 @@ class ClientToDatabase:
             trades['tscost'] = trades['val']*trades['inout'].map(tsratecalc)
             trades = trades.sort_values(by=['code'],ascending=[1])
             trades = trades.ix[:,['code','name','num','prc','val','tscost','inout']]
+            self.last_output_line += trades.shape[0]
             return trades
 
-def futures_gen(date,account_info,outputfmt='for_plot'):
+def futures_holding(date,account_info,outputfmt='for_plot'):
     """ 生成期货持仓，并计算总资产
         生成表格结构: code name num prc val
         account_info 结构 ：
@@ -323,7 +336,9 @@ if __name__ == '__main__':
     objtemp = ClientToDatabase(r'C:\Users\Jiapeng\Desktop\test.db','test')
     textvars=['成交编号','成交类型','成交时间','成交状态','股东代码','买卖','申请编号','委托编号','委托类型','业务名称','证券代码','证券名称']
     tabledir=r'C:\Users\Jiapeng\Desktop\bq1_trading.csv'
-    #objtemp.trdlist_to_db(textvars,tabledir,tablename=None,codemark='证券代码',replace=True)
+    objtemp.trdlist_to_db(textvars,tabledir,tablename=None,codemark='证券代码',replace=False)
     titles = ['证券代码','证券名称','成交数量','成交价格','买卖']
-    tb = objtemp.trdlist_format(titles,outdir='',tablename=r'test_trading_20170517',tscostrate=2/10000)
-    tb.to_csv(r'C:\Users\Jiapeng\Desktop\bb.csv')
+    print(objtemp.last_output_line)
+    tb = objtemp.trdlist_format(titles,outdir='',tablename=r'test_trading_20170518',tscostrate=2/10000)
+    print(objtemp.last_output_line)
+    #tb.to_csv(r'C:\Users\Jiapeng\Desktop\bb.csv')
