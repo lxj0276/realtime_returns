@@ -2,6 +2,7 @@ import datetime as dt
 import os
 import re
 
+from dateutil import parser
 import numpy as np
 import pandas as pd
 import sqlite3
@@ -13,6 +14,9 @@ from global_vars import *
 
 def undl_backfix(undl):
     """ 为标的undl 增加后缀，目前采用万得后缀标准 undl 应为字符串"""
+    undlsize = len(undl)
+    if undlsize<6:
+        undl = ''.join(['0'*(6-undlsize),undl])
     if undl[0] in ('0','3'):
         return undl + '.SZ'
     elif undl[0] in ('6'):
@@ -172,7 +176,7 @@ class ClientToDatabase:
         # 逆回购 理财产品等
         refound_sz = ['131810','131811','131800','131809','131801','131802','131803','131805','131806']
         refound_sh = ['204001','204007','204002','204003','204004','204014','204028','204091','204182']
-        other_vars = ['131990','888880','SHRQ88','SHXGED','SZRQ88','SZXGED']
+        other_vars = ['131990','888880','SHRQ88','SHXGED','SZRQ88','SZXGED','511990']
         tofilter = refound_sz+refound_sh+other_vars
         if not tablename:
             tablename = self.holdtbname
@@ -206,7 +210,7 @@ class ClientToDatabase:
             tablename 表格存储在数据库中的名称
         """
         if not tablename:
-            rec_time = dt.datetime.now().strftime('%Y%m%d %H%m%s')
+            rec_time = dt.datetime.now().strftime('%Y%m%d')
             tablename = ''.join([self._pofname,'_trading_',rec_time])
         with DatabaseConnect(self._dbdir) as conn:
             c = conn.cursor()
@@ -233,15 +237,43 @@ class ClientToDatabase:
                         conn.commit()
                     rawline = fl.readline()
 
-    def trdlist_format(self,titles,outdir,tablename=None):
+    def trdlist_format(self,titles,outdir,tablename,tscostrate):
         """ 从数据库提取画图所需格式的 交易 信息，tablename 未提取的表格的名称
             存储为 DataFrame, 输出到 csv
             titles 应为包含 的列表
-            需要返回字段 : code, name, num, prc,val,transaction_cost,inout
+            需要返回字段 : code, name, num, prc,val,tscost,inout
             做多 数量为正、金额为正， 做空为负、金额为负， 价格恒正, 交易成本恒为负
         """
-        pass
-
+        tofilter = ['131810','204001']
+        def marktrans(x):
+            if '买' in x:
+                return 'in'
+            elif '卖' in x:
+                return 'out'
+        def reverseval(x):
+            if x=='out':
+                return -1
+            else:
+                return 1
+        def tsratecalc(x):
+            if x=='out':
+                return tscostrate+STAMP_TAX  # 卖出会有印花税
+            else:
+                return -tscostrate
+        with DatabaseConnect(self._dbdir) as conn:
+            exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename])
+            trades = pd.read_sql(exeline,conn)
+            trades.columns = ['code','name','num','prc','inout']
+            # 剔除非股票持仓和零持仓代码
+            trades = trades[~ trades['code'].isin(tofilter)]
+            trades = trades[trades['num']>0]
+            trades['inout'] = trades['inout'].map(marktrans)
+            trades['num'] = trades['num']*trades['inout'].map(reverseval)
+            trades['val'] = trades['num']*trades['prc']
+            trades['tscost'] = trades['val']*trades['inout'].map(tsratecalc)
+            trades = trades.sort_values(by=['code'],ascending=[1])
+            trades = trades.ix[:,['code','name','num','prc','val','tscost','inout']]
+            return trades
 
 def futures_gen(date,account_info,outputfmt='for_plot'):
     """ 生成期货持仓，并计算总资产
@@ -288,6 +320,10 @@ def futures_gen(date,account_info,outputfmt='for_plot'):
 
 
 if __name__ == '__main__':
-    for t in FUTURES_INFO:
-        tt = futures_gen(TODAY,FUTURES_INFO[t],outputfmt='for_plot')
-        print(tt['table'])
+    objtemp = ClientToDatabase(r'C:\Users\Jiapeng\Desktop\test.db','test')
+    textvars=['成交编号','成交类型','成交时间','成交状态','股东代码','买卖','申请编号','委托编号','委托类型','业务名称','证券代码','证券名称']
+    tabledir=r'C:\Users\Jiapeng\Desktop\bq1_trading.csv'
+    #objtemp.trdlist_to_db(textvars,tabledir,tablename=None,codemark='证券代码',replace=True)
+    titles = ['证券代码','证券名称','成交数量','成交价格','买卖']
+    tb = objtemp.trdlist_format(titles,outdir='',tablename=r'test_trading_20170517',tscostrate=2/10000)
+    tb.to_csv(r'C:\Users\Jiapeng\Desktop\bb.csv')

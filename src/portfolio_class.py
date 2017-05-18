@@ -42,7 +42,7 @@ class Portfolio:
         mpl.rcParams['font.sans-serif'] = ['SimHei'] #用来正常显示中文标签
         plt.ion()
         fig=plt.figure(figsize=(20,20))
-        fig.canvas.set_window_title(str(today))
+        fig.canvas.set_window_title('  '.join([str(today),'VERSION : '+VERSION]))
         x = {}
         y = {}
         axes = {}
@@ -83,7 +83,6 @@ class Portfolio:
                 axes[obj].plot(x[obj][1:], y[obj][1:], linewidth=1, color='r')
             #t4=time.time()
             #print('time3 %f',t4-t3)
-            print(len(UNDL_POOL_INFO))
         print('plot finished')
         plt.savefig(os.path.join(Portfolio.FIGDIR,str(today)+'.png'))
 

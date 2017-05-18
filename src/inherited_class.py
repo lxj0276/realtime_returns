@@ -21,9 +21,9 @@ class Products(Portfolio):
                 obj = ClientToDatabase(holddb_dir[k],pofname)   # 创建客户端转数据库对象
                 hold_name = ''.join([pofname,'_positions_',k,'_',TODAY])
                 # 写入数据库
-                #obj.holdlist_to_db(os.path.join(rawhold_dir[k],hold_name+'.csv'),TEXT_VARS[pofname][k],currencymark='币种',codemark='证券代码',replace=True,tablename=hold_name)
+                #obj.holdlist_to_db(os.path.join(rawhold_dir[k],hold_name+'.csv'),TEXT_VARS_H[pofname][k],currencymark='币种',codemark='证券代码',replace=True,tablename=hold_name)
                 holdlst_dir[k] = os.path.join(os.path.join(holdlst_dir[k],hold_name+'.csv'))  # Portfolio class 需要能够直接读取的holdlist 文件
-                #obj.holdlist_format(HOLD_VARS[pofname][k],holdlst_dir[k],hold_name)   # 从数据库提取标准格式
+                obj.holdlist_format(HOLD_VARS[pofname][k],holdlst_dir[k],hold_name)   # 从数据库提取标准格式
                 stkval = obj.get_totvalue(VALUE_VARS[pofname][k],hold_name,othersource)
                 pofvalue += stkval
             elif k == 'futures':
