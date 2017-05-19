@@ -11,7 +11,6 @@ SUBSCRIBE_SOURCE = 'goldmine_snapshot'                         #  'goldmine_snap
 PRE_THREADS = {}
 FLUSH_CWSTAT = 1   # 画图更新时间间隔 秒
 
-STAMP_TAX = 1/1000
 
 today = dt.datetime.today()
 if not w.isconnected():
@@ -73,17 +72,3 @@ TRADE_VARS = {'Baiquan1': {'stocks': ['证券代码','证券名称','成交数�
               'Xingying7':{'stocks': ['证券代码','证券名称','成交数量','成交价格','买卖标志']}
               }
 
-
-
-tempprc = 6021.4
-FUTURES_INFO = {'Baiquan1':{'tot_value': 2324783.72,
-                             'IC1705.CFE': { 'settle': tempprc, 'trdside': -1,'multiplier': 200,'holdnum':np.array([4]) } },
-                'Baiquan2':{'tot_value': 3698432.92,
-                             'IC1705.CFE': { 'settle': tempprc, 'trdside': -1,'multiplier': 200,'holdnum':np.array([6]) } },
-                'Guodao2' :{'tot_value': 3662335.59,
-                            'IC1705.CFE': { 'settle': tempprc, 'trdside': -1,'multiplier': 200, 'holdnum':np.array([6]) } },
-                'Lishi1'  :{'tot_value': 8229038.97,
-                           'IC1705.CFE': { 'settle': tempprc, 'trdside': -1,'multiplier': 200, 'holdnum':np.array([16]) } },
-                'Xingying7' :{'tot_value': 4253431.55,
-                              'IC1705.CFE': { 'settle': tempprc, 'trdside': -1,'multiplier': 200, 'holdnum':np.array([1]) } }
-                }

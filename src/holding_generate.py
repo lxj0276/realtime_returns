@@ -14,13 +14,15 @@ from global_vars import *
 
 def undl_backfix(undl):
     """ 为标的undl 增加后缀，目前采用万得后缀标准 undl 应为字符串"""
+    if undl[0:2] in ('IF','IC','IH'):
+        return '.'.join([undl,'CFE'])
     undlsize = len(undl)
     if undlsize<6:
         undl = ''.join(['0'*(6-undlsize),undl])
     if undl[0] in ('0','3'):
-        return undl + '.SZ'
+        return '.'.join([undl,'.SZ'])
     elif undl[0] in ('6'):
-        return undl + '.SH'
+        return '.'.join([undl,'.SH'])
     else:
         return undl
 
@@ -104,18 +106,19 @@ class ClientToDatabase:
             print('Table '+tablename+' created!')
 
 
-    def __init__(self,dbdir,pofname):
-        self._dbdir = dbdir
+    def __init__(self,hold_dbdir,trd_dbdir,pofname):
+        self._hold_dbdir = hold_dbdir
+        self._trd_dbdir = trd_dbdir
         self._pofname = pofname
         self.holdtbname = None
         self.setholdtbname()
-        self.last_output_line = 0
+        self.table_output_count = {}
 
     def setholdtbname(self,inputdate = None):
         """ 根据日期时间确定持仓表格名称，如果没有给定的话(input=None)则提取当前,input应该是datetime 格式 """
         self.holdtbname = self._pofname + '_' + self.get_datetime(inputdate)
 
-    def holdlist_to_db(self,tabledir,textvars,currencymark='币种',codemark='证券代码',replace=True,tablename=None):
+    def holdlist_to_db(self,tabledir,textvars,tablename=None,codemark='证券代码',replace=True,currencymark='币种'):
         """ 将一张软件端导出的 持仓表格 更新至数据库
             textvars 存储数据库格式为TEXT的字段
             currencymark 用于识别汇总情况表头 目前只有通达信终端才有 若找不到就不建立表格
@@ -124,7 +127,7 @@ class ClientToDatabase:
         """
         if not tablename:
             tablename = self.holdtbname
-        with DatabaseConnect(self._dbdir) as conn:
+        with DatabaseConnect(self._hold_dbdir) as conn:
             c = conn.cursor()
             with open(tabledir,'r') as fl:
                 rawline = fl.readline()
@@ -132,27 +135,28 @@ class ClientToDatabase:
                 summary = False
                 while rawline:
                     line = rawline.strip().split(',')
-                    if not startwrite:     # 在找到详细数据之前会先查找汇总
-                        if not summary:    # 检查持仓汇总部分
-                            if currencymark in line:  #寻找汇总标题
-                                stitles = line
-                                currpos = stitles.index(currencymark)
-                                stitlecheck = ClientToDatabase.gen_table_titles(stitles,{'TEXT':(currencymark,)})
-                                stitletrans = stitlecheck['typed_titles']
-                                stitle_empty = stitlecheck['empty_pos']
-                                ClientToDatabase.create_db_table(c,tablename+'_summary',stitletrans,replace)
-                                rawline = fl.readline()
-                                summary = True
-                                continue
-                        else:
-                            if line[currpos] == '人民币':   # 读取人民币对应的一行
-                                exeline = ''.join(['INSERT INTO ', tablename, '_summary VALUES (', ','.join(['?']*len(stitletrans)), ')'])
-                                newline = []
-                                for dumi in range(len(line)):
-                                    if not stitle_empty[dumi]:
-                                        newline.append(line[dumi])
-                                c.execute(exeline, newline)
-                                conn.commit()
+                    if not startwrite:
+                        if currencymark: # 在找到详细数据之前会先查找汇总,如果不需要汇总则直接寻找标题
+                            if not summary:    # 检查持仓汇总部分
+                                if currencymark in line:  #寻找汇总标题
+                                    stitles = line
+                                    currpos = stitles.index(currencymark)
+                                    stitlecheck = ClientToDatabase.gen_table_titles(stitles,{'TEXT':(currencymark,)})
+                                    stitletrans = stitlecheck['typed_titles']
+                                    stitle_empty = stitlecheck['empty_pos']
+                                    ClientToDatabase.create_db_table(c,tablename+'_summary',stitletrans,replace)
+                                    rawline = fl.readline()
+                                    summary = True
+                                    continue
+                            else:
+                                if line[currpos] == '人民币':   # 读取人民币对应的一行
+                                    exeline = ''.join(['INSERT INTO ', tablename, '_summary VALUES (', ','.join(['?']*len(stitletrans)), ')'])
+                                    newline = []
+                                    for dumi in range(len(line)):
+                                        if not stitle_empty[dumi]:
+                                            newline.append(line[dumi])
+                                    c.execute(exeline, newline)
+                                    conn.commit()
                         #寻找正表标题
                         if codemark in line:
                             titles = line
@@ -175,7 +179,7 @@ class ClientToDatabase:
             else:  # 未能实现写入
                 print('Table '+tablename+' cannot read the main body, nothing writen !')
 
-    def holdlist_format(self,titles,outdir,tablename=None):
+    def holdlist_format(self,titles,tablename=None,outdir=None):
         """ 从数据库提取画图所需格式的持仓信息，tablename 未提取的表格的名称
             存储为 DataFrame, 输出到 csv
             titles 应为包含 证券代码 证券名称 证券数量 最新价格 的列表
@@ -184,7 +188,7 @@ class ClientToDatabase:
         # 逆回购 理财产品等
         if not tablename:
             tablename = self.holdtbname
-        with DatabaseConnect(self._dbdir) as conn:
+        with DatabaseConnect(self._hold_dbdir) as conn:
             exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename])
             holdings = pd.read_sql(exeline,conn)
             holdings.columns = ['code','name','num','prc']
@@ -193,7 +197,10 @@ class ClientToDatabase:
             holdings = holdings[holdings['num']>0]
             holdings['val'] = holdings['num']*holdings['prc']
             holdings = holdings.sort_values(by=['code'],ascending=[1])
-            holdings.to_csv(outdir,header = True,index=False)
+            if outdir:
+                holdings.to_csv(outdir,header = True,index=False)
+            else:
+                return holdings
 
     def get_totvalue(self,titles,tablename,othersource):
         """ 提取 客户端软件 对应的总资产 """
@@ -201,7 +208,7 @@ class ClientToDatabase:
             with open(othersource,'r') as pof:
                 totval = float(pof.readlines()[0].strip())
         else:
-            with DatabaseConnect(self._dbdir) as conn:
+            with DatabaseConnect(self._hold_dbdir) as conn:
                 exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename+'_summary'])
                 values = conn.execute(exeline).fetchall()
                 totval = np.sum(values[0])
@@ -216,7 +223,7 @@ class ClientToDatabase:
         if not tablename:
             rec_time = dt.datetime.now().strftime('%Y%m%d')
             tablename = ''.join([self._pofname,'_trading_',rec_time])
-        with DatabaseConnect(self._dbdir) as conn:
+        with DatabaseConnect(self._trd_dbdir) as conn:
             c = conn.cursor()
             with open(tabledir,'r') as fl:
                 rawline = fl.readline()
@@ -235,6 +242,8 @@ class ClientToDatabase:
                             newcreated = ClientToDatabase.create_db_table(c,tablename,titletrans,replace)
                             if not newcreated:
                                 processed_lines = c.execute(''.join(['SELECT COUNT(',codemark,') FROM ',tablename])).fetchall()[0][0]
+                            else:
+                                self.table_output_count[tablename] = 0    # 如果表格是新创建的话，需要初始化输出行数记录
                             rawline = fl.readline()
                             foundtitle = True
                             continue
@@ -249,7 +258,7 @@ class ClientToDatabase:
                     rawline = fl.readline()
                 print('%d lines updated to trading recorder database' %(linecount-processed_lines,))
 
-    def trdlist_format(self,titles,outdir,tablename,tscostrate):
+    def trdlist_format(self,titles,tablename,tscostrate,multiplyer=None,outdir=None):
         """ 从数据库提取画图所需格式的 交易 信息，tablename 未提取的表格的名称
             存储为 DataFrame, 输出到 csv
             titles 应为包含 的列表
@@ -269,24 +278,33 @@ class ClientToDatabase:
                 return 1
         def tsratecalc(x):
             if x=='out':
-                return tscostrate+STAMP_TAX  # 卖出会有印花税
+                return tscostrate['out']  # 卖出会有印花税
             else:
-                return -tscostrate
-        with DatabaseConnect(self._dbdir) as conn:
-            exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename,' WHERE row_id >',str(self.last_output_line)])
+                return -tscostrate['in']
+        def mulpcalc(x):
+            mulp = multiplyer.get(x)
+            if not mulp:
+                return 1
+            else:
+                return mulp
+        with DatabaseConnect(self._trd_dbdir) as conn:
+            exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename,' WHERE row_id >',str(self.table_output_count[tablename])])
             trades = pd.read_sql(exeline,conn)
             trades.columns = ['code','name','num','prc','inout']
             # 剔除非股票持仓和零持仓代码
             trades = trades[~ trades['code'].isin(tofilter)]
             trades = trades[trades['num']>0]
             trades['inout'] = trades['inout'].map(marktrans)
-            trades['num'] = trades['num']*trades['inout'].map(reverseval)
+            trades['num'] = trades['num']*trades['inout'].map(reverseval)*trades['code'].map(mulpcalc)
             trades['val'] = trades['num']*trades['prc']
             trades['tscost'] = trades['val']*trades['inout'].map(tsratecalc)
             trades = trades.sort_values(by=['code'],ascending=[1])
             trades = trades.ix[:,['code','name','num','prc','val','tscost','inout']]
-            self.last_output_line += trades.shape[0]
-            return trades
+            self.table_output_count[tablename] += trades.shape[0]
+            if outdir:
+                trades.to_csv(outdir,header = True,index=False)
+            else:
+                return trades
 
 def futures_holding(date,account_info,outputfmt='for_plot'):
     """ 生成期货持仓，并计算总资产
@@ -330,15 +348,22 @@ def futures_holding(date,account_info,outputfmt='for_plot'):
         raise Exception('No output format provided ')
 
 
-
-
 if __name__ == '__main__':
     objtemp = ClientToDatabase(r'C:\Users\Jiapeng\Desktop\test.db','test')
     textvars=['成交编号','成交类型','成交时间','成交状态','股东代码','买卖','申请编号','委托编号','委托类型','业务名称','证券代码','证券名称']
     tabledir=r'C:\Users\Jiapeng\Desktop\bq1_trading.csv'
-    objtemp.trdlist_to_db(textvars,tabledir,tablename=None,codemark='证券代码',replace=False)
+    #objtemp.trdlist_to_db(textvars,tabledir,tablename=None,codemark='证券代码',replace=False)
     titles = ['证券代码','证券名称','成交数量','成交价格','买卖']
-    print(objtemp.last_output_line)
-    tb = objtemp.trdlist_format(titles,outdir='',tablename=r'test_trading_20170518',tscostrate=2/10000)
-    print(objtemp.last_output_line)
+    #tb = objtemp.trdlist_format(titles,outdir='',tablename=r'test_trading_20170519',tscostrate={'in':2/10000,'out':12/10000},multiplyer={'603568.SH':100})
     #tb.to_csv(r'C:\Users\Jiapeng\Desktop\bb.csv')
+    textvars2=['成交编号','合约','买卖','开平','成交时间','报单编号','成交类型','投保','交易所']
+    tabledir2=r'C:\Users\Jiapeng\Desktop\成交记录_170518.csv'
+    objtemp.trdlist_to_db(textvars2,tabledir2,tablename='futures_trading',codemark='合约',replace=True)
+    titles2=['合约','合约','成交手数','成交价格','买卖']
+    tb2 = objtemp.trdlist_format(titles2,outdir='',tablename=r'futures_trading',tscostrate={'in':2/10000,'out':12/10000},multiplyer={'IC1706':100})
+    print(tb2)
+
+    objtemp.holdlist_to_db(tabledir=r'C:\Users\Jiapeng\Desktop\持仓_170519.csv',
+                           textvars=['合约','买卖','投保','交易所'],
+                           tablename='futures_holding',
+                           codemark='合约',replace=True,currencymark=None)

@@ -281,10 +281,10 @@ class Portfolio:
             if newfiles:
                 templist = pd.DataFrame()
                 for f in newfiles:
-                    templist = templist.append( pd.read_csv(os.path.join(lst_dir[k],f),encoding='gb2312',names=['code','name','num','prc','val','tscost','side']) , ignore_index=True)
+                    templist = templist.append( pd.read_csv(os.path.join(lst_dir[k],f),encoding='gb2312') , ignore_index=True)
                     scanedlst[k].append(f)    # 把已经读取过的 file 加入到记录
-                tempin = templist[templist['side'] == 'in']
-                tempout = templist[templist['side'] == 'out']
+                tempin = templist[templist['inout'] == 'in']
+                tempout = templist[templist['inout'] == 'out']
                 groupedin=tempin.groupby('code').sum()
                 groupedin['code'] = groupedin.index
                 groupedin['prc'] = groupedin['val'].values/groupedin['num'].values
