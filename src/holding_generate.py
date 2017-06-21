@@ -20,9 +20,9 @@ def undl_backfix(undl):
     if undlsize<6:
         undl = ''.join(['0'*(6-undlsize),undl])
     if undl[0] in ('0','3'):
-        return '.'.join([undl,'.SZ'])
+        return '.'.join([undl,'SZ'])
     elif undl[0] in ('6'):
-        return '.'.join([undl,'.SH'])
+        return '.'.join([undl,'SH'])
     else:
         return undl
 
@@ -179,22 +179,36 @@ class ClientToDatabase:
             else:  # 未能实现写入
                 print('Table '+tablename+' cannot read the main body, nothing writen !')
 
-    def holdlist_format(self,titles,tablename=None,outdir=None):
+    def holdlist_format(self,titles,tablename=None,outdir=None,undltype='stocks',multiplyer=MULTIPLIERS):
         """ 从数据库提取画图所需格式的持仓信息，tablename 未提取的表格的名称
             存储为 DataFrame, 输出到 csv
             titles 应为包含 证券代码 证券名称 证券数量 最新价格 的列表
             需要返回字段 : code, name, num, prc,val
         """
-        # 逆回购 理财产品等
         if not tablename:
             tablename = self.holdtbname
         with DatabaseConnect(self._hold_dbdir) as conn:
             exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename])
             holdings = pd.read_sql(exeline,conn)
-            holdings.columns = ['code','name','num','prc']
-            # 剔除非股票持仓和零持仓代码
-            holdings = holdings[~ holdings['code'].isin(HOLD_FILTER)]
-            holdings = holdings[holdings['num']>0]
+
+            if undltype=='stocks':
+                holdings.columns = ['code','name','num','prc']
+                # 剔除非股票持仓和零持仓代码 逆回购 理财产品等
+                holdings = holdings[~ holdings['code'].isin(HOLD_FILTER)]
+                holdings = holdings[holdings['num']>0]
+            elif undltype=='futures':
+                def buysell(x):
+                    return ('买' in x) - ('卖' in x)
+                def add_multi(x):
+                    for k in multiplyer:
+                        if k in x:
+                            return multiplyer[k]
+                holdings.columns = ['code','name','buysell','num','prc']
+                holdings['num'] = holdings['num']*holdings['buysell'].map(buysell)*holdings['name'].map(add_multi)
+                holdings.drop(['buysell'],axis=1)
+            else:
+                raise Exception('Must specify undltype !')
+
             holdings['val'] = holdings['num']*holdings['prc']
             holdings = holdings.sort_values(by=['code'],ascending=[1])
             if outdir:
@@ -258,7 +272,7 @@ class ClientToDatabase:
                     rawline = fl.readline()
                 print('%d lines updated to trading recorder database' %(linecount-processed_lines,))
 
-    def trdlist_format(self,titles,tablename,tscostrate,multiplyer=None,outdir=None):
+    def trdlist_format(self,titles,tablename,tscostrate,multiplyer=MULTIPLIERS,outdir=None):
         """ 从数据库提取画图所需格式的 交易 信息，tablename 未提取的表格的名称
             存储为 DataFrame, 输出到 csv
             titles 应为包含 的列表
