@@ -217,11 +217,11 @@ class rawtrading_futures:
 if __name__=='__main__':
     import configparser as cp
     cf = cp.ConfigParser()
-    cf.read(r'E:\realtime_monitors\realtime_returns\configures\BaiQuanHuiJin1.ini')
+    cf.read(r'E:\realtime_monitors\realtime_returns\configures\BaiQuanJinQu1.ini')
 
     print(cf.sections())
-    print(cf.options('stocks'))
-    print(cf.items('stocks'))
-    print(cf.get('stocks','text_vars_hold'))
-    print(cf.get('stocks','text_vars_hold').split(','))
-    print(cf.options('cwstate'))
+    print(cf.options('blog'))
+    # print(cf.items('stocks'))
+    # print(cf.get('stocks','text_vars_hold'))
+    # print(cf.get('stocks','text_vars_hold').split(','))
+    # print(cf.options('cwstate'))

@@ -264,16 +264,16 @@ class rawholding_futures:
         for strat in self._logdir:
             acclogdir = os.path.join(self._logdir[strat],'accountlog',''.join(['accountlog_',date.strftime('%Y%m%d'),'.txt']))
             if prctype=='settle':
-                w.start()
                 stratinfo = strat.split('_')
                 cttype = stratinfo[1].upper()
                 montype = stratinfo[0]
                 contracts = self.get_contracts_ours(date=date,cttype=cttype)
                 ct = '.'.join([contracts[montype],'CFE'])
                 num = holdnum[strat]
+                w.start()
                 data = w.wsd(ct,'settle,close',date,date).Data
-                diffval += (data[0][0]-data[1][0])*num*self._multiplier[cttype]
-                #diffval += (-23.2)*num*self._multiplier[cttype]   # 紧急措施 手动
+                #diffval += (data[0][0]-data[1][0])*num*self._multiplier[cttype]
+                diffval += (35.4)*num*self._multiplier[cttype]   # 紧急措施 手动
             with open(acclogdir) as acclog:
                 temp = acclog.readlines()
                 contents_temp = [c.strip().split(',') for c in temp]
@@ -302,8 +302,8 @@ class rawholding_futures:
             code = rawholding_stocks.addfix(name)
             num = holdnum[strat]
             multi = self._multiplier[cttype]
-            prc = w.wsd('.'.join([name,'CFE']),prctype,predate,predate).Data[0][0]
-            # prc = 6010.8   # 紧急措施 手动
+            #prc = w.wsd('.'.join([name,'CFE']),prctype,predate,predate).Data[0][0]
+            prc = 5980.2   # 紧急措施 手动
             holdlist = pd.DataFrame([[code,name,num,multi,prc]],columns=['code','name','num','multi','prc'])
             holdlist['val'] = holdlist['num']*holdlist['multi']*holdlist['prc']
             holding = holding.append(holdlist,ignore_index=True)
