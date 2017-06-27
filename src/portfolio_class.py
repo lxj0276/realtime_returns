@@ -99,20 +99,17 @@ class Portfolio:
         """ 从 pool 中删除对应组合，提取该组合特有的股票删除，不能删除 total 中与其他组合共有的股票 """
         # 根据特定 Portfolio pop
         if pofname in UNDL_POOL:
-            holdonly = {}
-            for k in poplst:
-                holdonly[k]=set(poplst[k]['code'].values)
+            holdonly = popcodes
             for k in UNDL_POOL:
                 if k not in ( 'total', pofname):
-                    for undl in poplst:
-                        holdonly[undl] -= UNDL_POOL[k][undl]
-            for und in holdonly:      # 删除 total 中对应部分
-                UNDL_POOL['total'] -= holdonly[und]
+                    holdonly -= UNDL_POOL[k]
+            UNDL_POOL['total'] -= holdonly   # 删除 total 中对应部分
             del UNDL_POOL[pofname]  # 删除对应产品, 可能仍有部分碎股会存在
 
 
-    def __init__(self,pofname,pofval_dir,holdlst_dir,trdlst_dir,handlst_dir,cwstatus_dir):
+    def __init__(self,pofname,congifdir):
         self.pofname = pofname                               # 产品名称
+        # 读取配置文件
         #-----------------------  基本路径 --------------------------------------
         self.pofval_dir = pofval_dir                           # 产品资产存储文件路径
         self.holdlst_dir = holdlst_dir                         # 组合持仓文件路径，数据结构为 基于标的的字典 ex. {'stocks':_dir1,futures:_dir2}
@@ -365,7 +362,7 @@ class Portfolio:
         newinfo = pd.DataFrame( UNDL_POOL_INFO, index = POOL_COLUMNS).T
         addval = 0
         for tp in self.holdings:
-            holding=self.holdings[tp]
+            holding = self.holdings[tp]
             if holding.empty:
                 continue
             else:

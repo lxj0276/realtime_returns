@@ -272,17 +272,17 @@ class rawholding_futures:
                 contracts = self.get_contracts_ours(date=date,cttype=cttype)
                 num = holdnum[strat]
                 ######  wind data ########
-                # ct = '.'.join([contracts[montype],'CFE'])
-                # w.start()
-                # data = w.wsd(ct,'settle,close',date,date).Data
-                # diffval += (data[0][0]-data[1][0])*num*self._multiplier[cttype]
+                ct = '.'.join([contracts[montype],'CFE'])
+                w.start()
+                data = w.wsd(ct,'settle,close',date,date).Data
+                diffval += (data[0][0]-data[1][0])*num*self._multiplier[cttype]
                 ###### 掘金 data ##########
                 #ct = '.'.join(['CFFEX',contracts[montype]])
                 #gm_obj = gm_daily('18201141877','Wqxl7309')
                 #data = gm_obj.gmwsd(code=ct,valstr='settle_price,close',startdate=date,enddate=date)
                 #diffval += (data.loc[0,'settle_price']-data.loc[0,'close'])*num*self._multiplier[cttype]
                 ###################
-                diffval += (-16.6)*num*self._multiplier[cttype]   # 紧急措施 手动
+                # diffval += (-16.6)*num*self._multiplier[cttype]   # 紧急措施 手动
             with open(acclogdir) as acclog:
                 temp = acclog.readlines()
                 contents_temp = [c.strip().split(',') for c in temp]
@@ -297,17 +297,17 @@ class rawholding_futures:
         if date is None:
             date = dt.datetime.today()
         #######  万得数据源 #######
-        # w.start()
-        # if date is None:
-        #     date = dt.datetime.today()
-        # if preday: # 画图需要前一日价格作为持仓，计算分红需要当日价格作为持仓
-        #     predate = w.tdaysoffset(-1,date)
-        # else:
-        #     predate = date
+        w.start()
+        if date is None:
+            date = dt.datetime.today()
+        if preday: # 画图需要前一日价格作为持仓，计算分红需要当日价格作为持仓
+            predate = w.tdaysoffset(-1,date)
+        else:
+            predate = date
         #######  掘金数据源 #######
-        md.init('18201141877','Wqxl7309')
-        if prctype=='settle':
-            prctype = 'settle_price'   # 转为掘金格式
+        # md.init('18201141877','Wqxl7309')
+        # if prctype=='settle':
+        #     prctype = 'settle_price'   # 转为掘金格式
 
         holdnum = self.get_holdnum(date=date)
         holding = pd.DataFrame()
@@ -320,12 +320,12 @@ class rawholding_futures:
             num = holdnum[strat]
             multi = self._multiplier[cttype]
             ############# wind 数据源
-            # prc = w.wsd('.'.join([name,'CFE']),prctype,predate,predate).Data[0][0]
+            prc = w.wsd('.'.join([name,'CFE']),prctype,predate,predate).Data[0][0]
             ########## 掘金数据
             #lastbar = md.get_last_n_dailybars(symbol='.'.join(['CFFEX',name]),n=1,end_time=date.strftime('%Y-%m-%d'))[0]
             #prc = eval('.'.join(['lastbar',prctype]))
             #### 紧急措施 手动
-            prc = 6069.2 if name=='IC1707' else 5880.6
+            # prc = 6069.2 if name=='IC1707' else 5880.6
             holdlist = pd.DataFrame([[code,name,num,multi,prc]],columns=['code','name','num','multi','prc'])
             holdlist['val'] = holdlist['num']*holdlist['multi']*holdlist['prc']
             holding = holding.append(holdlist,ignore_index=True)

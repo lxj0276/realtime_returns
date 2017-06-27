@@ -35,7 +35,6 @@ class gm_daily:
         if startdate==enddate:   # 不再需要其他数据
             return todaydata.loc[:,valstr.split(',')]
         else:
-            enddate += dt.timedelta(days=-1)
             tempdata = md.get_dailybars(code,startdate.strftime('%Y-%m-%d'),enddate.strftime('%Y-%m-%d'))
             predata = [[t.strtime,t.open,t.high,t.low,t.close,t.volume,t.amount,t.settle_price] for t in tempdata]
             predata = pd.DataFrame(predata,columns=cols)
@@ -46,7 +45,7 @@ if __name__=='__main__':
     code = 'CFFEX.IC1707'
     #code = 'SHSE.000905'
     startdate = dt.datetime(year=2017,month=6,day=20)
-    enddate = dt.datetime(year=2017,month=6,day=26)
+    enddate = dt.datetime(year=2017,month=6,day=27)
     valstr=','.join(['open','low','high','close,settle_price'])
 
     data = obj.gmwsd(code,valstr,startdate,enddate)
