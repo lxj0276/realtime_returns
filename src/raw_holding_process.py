@@ -50,17 +50,21 @@ class rawholding_stocks:
         """ 根据日期时间确定持仓表格名称，如果没有给定的话(input=None)则提取当前,input应该是datetime 格式 """
         if inputdate is None:
             inputdate = dt.date.today().strftime('%Y%m%d')
+        else:
+            inputdate = inputdate.strftime('%Y%m%d')
         return '_'.join([self._pofname,'holding_stocks',inputdate])
 
-    def holdlist_to_db(self,textvars,tabledir,tablename=None,codemark='证券代码',replace=True,currencymark='币种'):
+    def holdlist_to_db(self,textvars,tabledir,date=None,tablename=None,codemark='证券代码',replace=True,currencymark='币种'):
         """ 将一张软件端导出的 持仓表格 更新至数据库
             textvars 存储数据库格式为TEXT的字段
             currencymark 用于识别汇总情况表头 目前只有通达信终端才有 若找不到就不建立表格
             codemark 用于标识正表表头
             tablename 表格存储在数据库中的名称
         """
+        if date is None:
+            date = dt.datetime.today()
         if not tablename:
-            tablename = self.get_holdname()
+            tablename = self.get_holdname(inputdate=date)
         with db_assistant(dbdir=self._hold_dbdir) as holddb:
             conn = holddb.connection
             c = conn.cursor()
@@ -114,14 +118,16 @@ class rawholding_stocks:
             else:  # 未能实现写入
                 print('Table '+tablename+' cannot read the main body, nothing writen !')
 
-    def holdlist_format(self,titles,tablename=None,outdir=None):
+    def holdlist_format(self,titles,date=None,tablename=None,outdir=None):
         """ 从数据库提取画图所需格式的持仓信息，tablename 未提取的表格的名称
             存储为 DataFrame, 输出到 csv
             titles 应为包含 证券代码 证券名称 证券数量 最新价格 的列表
-            需要返回字段 : code, name, num, prc,val
+            需要返回字段 : code, name, num, multi, prc
         """
+        if date is None:
+            date = dt.datetime.today()
         if not tablename:
-            tablename = self.get_holdname()
+            tablename = self.get_holdname(inputdate=date)
         with db_assistant(self._hold_dbdir) as holddb:
             conn = holddb.connection
             exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename])
@@ -131,15 +137,21 @@ class rawholding_stocks:
             holdings['code'] = holdings['code'].map(rawholding_stocks.addfix)
             holdings = holdings[~ holdings['code'].isin(HOLD_FILTER)]
             holdings = holdings[holdings['num']>0]
-            holdings['val'] = holdings['num']*holdings['prc']
+            holdings['multi'] = np.ones([len(holdings),1])
+            #holdings['val'] = holdings['num']*holdings['prc']
             holdings = holdings.sort_values(by=['code'],ascending=[1])
+            holdings = holdings.loc[:,['code','name','num','multi','prc']]
             if outdir:
                 holdings.to_csv(outdir,header = True,index=False)
             else:
                 return holdings
 
-    def get_totvalue(self,titles,tablename,othersource):
+    def get_totvalue(self,titles,date=None,tablename=None,othersource=None):
         """ 提取 客户端软件 对应的总资产 """
+        if date is None:
+            date = dt.datetime.today()
+        if not tablename:
+            tablename = self.get_holdname(inputdate=date)
         if not titles:    # 客户端持仓表格没有资产信息，需要从其他源（手填）提取
             with open(othersource,'r') as pof:
                 totval = float(pof.readlines()[0].strip())
@@ -150,7 +162,6 @@ class rawholding_stocks:
                 values = conn.execute(exeline).fetchall()
                 totval = np.sum(values[0])
         return totval
-
 
 
 class rawholding_futures:
@@ -255,7 +266,7 @@ class rawholding_futures:
             holdnum[strat] = np.sum(contents[:,0])*num[0]   # contents[:,0] 已经包含了持仓方向信息
         return holdnum
 
-    def get_totval(self,date=None,prctype = 'close'):
+    def get_totval(self,date=None,prctype = 'close',source='wind'):
         """ 提取期货账户总金额 ， 可能包含多个策略"""
         if date is None:
             date = dt.datetime.today()
@@ -271,16 +282,18 @@ class rawholding_futures:
                 montype = stratinfo[0]
                 contracts = self.get_contracts_ours(date=date,cttype=cttype)
                 num = holdnum[strat]
-                ######  wind data ########
-                ct = '.'.join([contracts[montype],'CFE'])
-                w.start()
-                data = w.wsd(ct,'settle,close',date,date).Data
-                diffval += (data[0][0]-data[1][0])*num*self._multiplier[cttype]
-                ###### 掘金 data ##########
-                #ct = '.'.join(['CFFEX',contracts[montype]])
-                #gm_obj = gm_daily('18201141877','Wqxl7309')
-                #data = gm_obj.gmwsd(code=ct,valstr='settle_price,close',startdate=date,enddate=date)
-                #diffval += (data.loc[0,'settle_price']-data.loc[0,'close'])*num*self._multiplier[cttype]
+                if source=='wind':
+                    ######  wind data ########
+                    ct = '.'.join([contracts[montype],'CFE'])
+                    w.start()
+                    data = w.wsd(ct,'settle,close',date,date).Data
+                    diffval += (data[0][0]-data[1][0])*num*self._multiplier[cttype]
+                elif source=='gm':
+                    ##### 掘金 data ##########
+                    ct = '.'.join(['CFFEX',contracts[montype]])
+                    gm_obj = gm_daily('18201141877','Wqxl7309')
+                    data = gm_obj.gmwsd(code=ct,valstr='settle_price,close',startdate=date,enddate=date)
+                    diffval += (data.loc[0,'settle_price']-data.loc[0,'close'])*num*self._multiplier[cttype]
                 ###################
                 # diffval += (-16.6)*num*self._multiplier[cttype]   # 紧急措施 手动
             with open(acclogdir) as acclog:
@@ -292,22 +305,24 @@ class rawholding_futures:
                     totvals = contents[2]    # 将时间也包括上
         return totvals+diffval
 
-    def holdlist_format(self,date=None,prctype='close',preday=True,outdir=None):
+    def holdlist_format(self,date=None,prctype='close',preday=True,outdir=None,source='wind'):
         """ 提取标准格式, 与get_totval 平行，不会互相调用 """
         if date is None:
             date = dt.datetime.today()
-        #######  万得数据源 #######
-        w.start()
-        if date is None:
-            date = dt.datetime.today()
-        if preday: # 画图需要前一日价格作为持仓，计算分红需要当日价格作为持仓
-            predate = w.tdaysoffset(-1,date)
-        else:
-            predate = date
-        #######  掘金数据源 #######
-        # md.init('18201141877','Wqxl7309')
-        # if prctype=='settle':
-        #     prctype = 'settle_price'   # 转为掘金格式
+        if source=='wind':
+            #######  万得数据源 #######
+            w.start()
+            if date is None:
+                date = dt.datetime.today()
+            if preday: # 画图需要前一日价格作为持仓，计算分红需要当日价格作为持仓
+                predate = w.tdaysoffset(-1,date)
+            else:
+                predate = date
+        elif source=='gm':
+            ######  掘金数据源 #######
+            md.init('18201141877','Wqxl7309')
+            if prctype=='settle':
+                prctype = 'settle_price'   # 转为掘金格式
 
         holdnum = self.get_holdnum(date=date)
         holding = pd.DataFrame()
@@ -319,15 +334,17 @@ class rawholding_futures:
             code = rawholding_stocks.addfix(name)
             num = holdnum[strat]
             multi = self._multiplier[cttype]
-            ############# wind 数据源
-            prc = w.wsd('.'.join([name,'CFE']),prctype,predate,predate).Data[0][0]
-            ########## 掘金数据
-            #lastbar = md.get_last_n_dailybars(symbol='.'.join(['CFFEX',name]),n=1,end_time=date.strftime('%Y-%m-%d'))[0]
-            #prc = eval('.'.join(['lastbar',prctype]))
+            if source=='wind':
+                ############# wind 数据源
+                prc = w.wsd('.'.join([name,'CFE']),prctype,predate,predate).Data[0][0]
+            elif source=='gm':
+                ######### 掘金数据
+                lastbar = md.get_last_n_dailybars(symbol='.'.join(['CFFEX',name]),n=1,end_time=date.strftime('%Y-%m-%d'))[0]
+                prc = eval('.'.join(['lastbar',prctype]))
             #### 紧急措施 手动
             # prc = 6069.2 if name=='IC1707' else 5880.6
             holdlist = pd.DataFrame([[code,name,num,multi,prc]],columns=['code','name','num','multi','prc'])
-            holdlist['val'] = holdlist['num']*holdlist['multi']*holdlist['prc']
+            #holdlist['val'] = holdlist['num']*holdlist['multi']*holdlist['prc']
             holding = holding.append(holdlist,ignore_index=True)
         holding = holding[holding['num']!=0]
         if outdir:
@@ -335,22 +352,3 @@ class rawholding_futures:
         else:
             return holding
 
-
-if __name__=='__main__':
-    import configparser as cf
-    cp = cf.ConfigParser()
-    cp.read(r'E:\realtime_monitors\realtime_returns\configures\GuoDaoLiShi2.ini')
-    cwdir = dict(cp.items('cwstate'))
-    logdir = dict(cp.items('blog'))
-
-    hold_dbdir=''
-    pofname='test'
-
-    t = rawholding_futures(hold_dbdir,pofname,logdir,cwdir)
-
-    print(t.get_holdnum())
-    print(t.get_totval())
-    holding = t.holdlist_format()
-    print(holding)
-
-    print(np.sum(np.abs(holding['val'].values*(0.1))))

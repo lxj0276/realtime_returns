@@ -29,10 +29,10 @@ class db_assistant:
         return {'typed_titles':typed_titles,'empty_pos':empty_pos}
 
     def __init__(self,dbdir):
-        self.dbdir=dbdir
+        self.dbdir = dbdir
 
     def __enter__(self):
-        self.connection=sqlite3.connect(self.dbdir)
+        self.connection = sqlite3.connect(self.dbdir)
         return self    # 返回一个已经连接的 db_assistant对象
 
     def __exit__(self,exc_type,exc_instantce,traceback):

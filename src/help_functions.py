@@ -27,15 +27,6 @@ def clear_dir(pathdir):
         if os.path.isdir(fldir):
             os.rmdir(fldir)
 
-def calc_trd_levels(prestat,currstat):
-    """ 根据cwstate文件计算持仓挡位情况 """
-    statchg = currstat - prestat
-    inlvs = np.sum(statchg < 0)
-    outlvs = np.sum(statchg > 0)
-    holdlvs = np.sum(statchg == 0)
-    poslvs = np.sum(currstat<0)
-    return {'inlvs' : inlvs, 'outlvs': outlvs, 'holdlvs':holdlvs,'poslvs':poslvs }
-
 def calc_shape(num):
     """ 根据子图总数量 计算画图子图的分布 """
     if num<= 0 :
@@ -54,6 +45,14 @@ def calc_shape(num):
             shape = (lower,lower)
     return shape
 
+# def calc_trd_levels(prestat,currstat):
+#     """ 根据cwstate文件计算持仓挡位情况 """
+#     statchg = currstat - prestat
+#     inlvs = np.sum(statchg < 0)
+#     outlvs = np.sum(statchg > 0)
+#     holdlvs = np.sum(statchg == 0)
+#     poslvs = np.sum(currstat<0)
+#     return {'inlvs' : inlvs, 'outlvs': outlvs, 'holdlvs':holdlvs,'poslvs':poslvs }
 
 # def wind2gm(undllst,endmark='.tick'):
 #     """ 转换为标的代码wind代码 为掘金代码 """
