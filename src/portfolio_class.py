@@ -1,3 +1,4 @@
+
 import datetime as dt
 import os
 import time
@@ -8,11 +9,9 @@ import matplotlib.ticker as mtick
 import matplotlib as mpl
 import numpy as np
 import pandas as pd
-from WindPy import w
 
-from src.data_subscribe import data_subscribe
-from src.holding_generate import *
-from src.global_vars import *
+from src.data_subscribe import *
+#from src.global_vars import *
 from src.help_functions import *
 
 
@@ -25,61 +24,73 @@ class Portfolio:
     PLOT_NUM = 0       # 需要画图的数量
     FIGDIR = r'.\saved_figures'   # 图像存储路径
 
-    global UNDL_POOL           # 存储所有需要更新的标的代码，其结构见 add_pool 函数
-    global UNDL_POOL_INFO      # 存储所有标的的最新推送信息，，结构为 {标的1:[v1,v2], 标的2:[v1,v2],...}
-    global POOL_COLUMNS        # 订阅数据字段 列表
-    global SUBSCRIBE_SOURCE    # 订阅数据源
-
     @classmethod
     def update_undlpool(cls):
         """ 更新实例状态并画图 """
         data_subscribe(SUBSCRIBE_SOURCE)
-        today = dt.date.today()
-        start = START_TIME
-        end = END_TIME
         # 画图配置
         shape=calc_shape(len(Portfolio.REGI_OBJ))
         mpl.rcParams['font.sans-serif'] = ['SimHei'] #用来正常显示中文标签
         plt.ion()
         fig=plt.figure(figsize=(20,20))
-        fig.canvas.set_window_title('  '.join([str(today),'VERSION : '+VERSION]))
+        fig.canvas.set_window_title('  '.join([TODAY,'VERSION : '+VERSION]))
         x = {}
         y = {}
         axes = {}
-        while( end>= dt.datetime.now() >= start):
+        ptscount = {}
+        while( END_TIME>= dt.datetime.now() >= START_TIME):
             time.sleep(FLUSH_CWSTAT)
-            for obj in Portfolio.REGI_OBJ:
+            for obj in Portfolio.REGI_OBJ:   # 在画每个点之前都要先更新所有实例
                 obj.update_object()
             count = 1   # 第几个子图
             for id in sorted( Portfolio.PLOT_OBJ ):    #  Portfolio.PLOT_OBJ 是以增加过的画图 obj 的 regid
                 plobj = Portfolio.PLOT_OBJ[id]
                 obj = plobj[0]
                 ploting = plobj[1]
-                if obj not in x:
-                    x[obj] = [dt.datetime.now()]
-                    y[obj] = [(obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue]
-                    ax=fig.add_subplot(str(shape[0])+str(shape[1])+str(count))
-                    ax.xaxis.set_major_formatter(mdate.DateFormatter('%H:%M'))#设置时间标签显示格式 '%Y-%m-%d %H:%M:%S'
+                if obj not in x:   # 初次画图,只有一个点
+                    # ---------------------------- test zone ------------------------------------
+                    # method 1
+                    #x[obj] = [dt.datetime.now()]
+                    #y[obj] = [(obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue]
+                    # method 2
+                    x[obj] = [0]*PLOT_POINTS
+                    y[obj] = [0]*PLOT_POINTS
+                    x[obj][0] = dt.datetime.now()
+                    y[obj][0] = (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue
+                    ptscount[obj] = 1
+                    # ------------------------------------------------------------------------------------
+                    ax = fig.add_subplot(str(shape[0])+str(shape[1])+str(count))
+                    ax.xaxis.set_major_formatter(mdate.DateFormatter('%H:%M'))
                     ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.4f%%'))
                     ax.set_title(obj._pofname)
                     axes[obj] = ax
-                if ploting:
-                    y[obj].append((obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100)
-                else:
-                    y[obj].append(y[obj][-1])
-                x[obj].append(dt.datetime.now())
-                axes[obj].set_xlim(x[obj][0], x[obj][-1])
-                plt.pause(0.01)
+                else:  # 此前画过图，有两个以上点
+                    # 增加画图坐标点
+                    if ploting:  # 正常画图的情况
+                        #y[obj].append((obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100)
+                        y[obj][ptscount[obj]] = (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100
+                    else:  # 画图暂停的情况
+                        #y[obj].append(y[obj][-1])
+                        y[obj][ptscount[obj]] = y[obj][ptscount[obj]-1]
+                    #x[obj].append(dt.datetime.now())
+                    x[obj][ptscount[obj]] = dt.datetime.now()
+                    # 设置画图区域
+                    #axes[obj].set_xlim(x[obj][0], x[obj][-1])
+                    axes[obj].set_xlim(x[obj][0], x[obj][ptscount[obj]])
+                    ptscount[obj] += 1
+                    plt.pause(0.01)
                 count +=1
+            # 画图： 需要设置图例，因为每次都是画一张新图
             for id in sorted(Portfolio.PLOT_OBJ):
                 plobj = Portfolio.PLOT_OBJ[id]
                 obj = plobj[0]
-                axes[obj].legend(('return : %.4f%%' % y[obj][-1],))
-                axes[obj].plot(x[obj][1:], y[obj][1:], linewidth=1, color='r')
-            print(UNDL_POOL['total'])
-            print(UNDL_POOL_INFO)
-        print('plot finished')
-        plt.savefig(os.path.join(Portfolio.FIGDIR,str(today)+'.png'))
+                if ptscount[obj]>=2:  # 至少两个点以上才能画图
+                    #axes[obj].legend(('return : %.4f%%' % y[obj][-1],))
+                    #axes[obj].plot(x[obj][1:], y[obj][1:], linewidth=1, color='r')
+                    axes[obj].legend(('return : %.4f%%' % y[obj][ptscount[obj]-1],))
+                    axes[obj].plot(x[obj][0:ptscount[obj]-1], y[obj][0:ptscount[obj]-1], linewidth=1, color='r')
+        print('plot finished, plots will be saved.')
+        plt.savefig(os.path.join(Portfolio.FIGDIR,TODAY+'.png'))
 
     @classmethod
     def add_pool(cls,pofname,addcodes):
@@ -127,20 +138,21 @@ class Portfolio:
         for undl in self._handlst_dir:                        # 清空手动交易单子路径
             clear_dir(handlst_dir[undl])
         #-----------------------  交易状态设置 --------------------------------------
-        self._plotid = 0                                      # 初始化该实例的plotid，如果需要画图的话该值应该为大于0的值，不需要的话则为0
         self._noposition = {}
         self._lastcwstate = self.cwstate_snapshot(predaystat=True)       # 初始化交易状态,使用前一日的cwstate交易状态，改文件路径可由cwstate路径推出
         for strategy in self._lastcwstate:  # 检查是否有持仓
             self._noposition[strategy] = not np.any(self._lastcwstate[strategy][:,0])
+        #-----------------------  画图配置 --------------------------------------
+        self._plotid = 0                                      # 初始化该实例的plotid，如果需要画图的话该值应该为大于0的值，不需要的话则为0
         if not np.all(list(self._noposition.values())):                  # 交易开始前就有持仓的情况下，加入holdings, 当天开始时无持仓则不必
             self._holdings['T1'] = self.read_holdlist()
-            if self._holdings['T1'] is not None:
-                Portfolio.add_pool(addcodes=self._holdings['T1']['code'],pofname=self._pofname)    # 将持仓增加到 POOL中
-                Portfolio.PLOT_NUM += 1                                  # 有持仓则确定该对象需要画图，增加类需要的画图数目
-                self._plotid = Portfolio.PLOT_NUM                         # 设定 plotid 为第几个需要画的图
-                Portfolio.PLOT_OBJ[self._plotid] = [self,True]            # 第二个布尔值为画图开关，当停止画图时会被设置为False
-        Portfolio.REGI_OBJ.append(self)                                   # 将该实例对象添加到类的实例记录列表
-        print(' %s portfolio created ! ' % self._pofname)
+            assert self._holdings['T1'] is not None,'有持仓 hold T1 不应为None!'
+            Portfolio.add_pool(addcodes=self._holdings['T1']['code'],pofname=self._pofname)    # 将持仓增加到 POOL中
+            Portfolio.PLOT_NUM += 1                                  # 有持仓则确定该对象需要画图，增加类需要的画图数目
+            self._plotid = Portfolio.PLOT_NUM                         # 设定 plotid 为第几个需要画的图
+            Portfolio.PLOT_OBJ[self._plotid] = [self,True]            # 第二个布尔值为画图开关，当停止画图时会被设置为False
+        Portfolio.REGI_OBJ.append(self)                                # 将该实例对象添加到类的实例记录列表
+        print(' %s : portfolio created ! ' % self._pofname)
 
     def get_pofvalue(self):
         with open(self._pofval_dir, 'r') as pofinfo:
@@ -389,9 +401,10 @@ class Portfolio:
         self._pofvalue = self.get_pofvalue()    # 更新总资产，应对当日转账情况
         #self.check_handtrd()    # 检查手动交易
         self.flush_trdstat()
-        if not np.all(list(self._noposition.values())):  # 有持仓
+        empty_position = np.all(list(self._noposition.values()))
+        if not empty_position:  # 有持仓
             self.startplot()
-        elif np.all(list(self._noposition.values())):
+        elif empty_position:
             self.stopplot()
         if UNDL_POOL_INFO:
             self.update_addvalue()

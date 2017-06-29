@@ -5,6 +5,7 @@ from gmsdk import md
 import numpy as np
 
 from global_vars import *
+from portfolio_class import *
 from new_thread.new_thread import *
 from raw_holding_process import rawholding_stocks
 
@@ -27,14 +28,12 @@ def addfix(undl):
         return  '.'.join([undl,'CFE'])
 
 def data_subscribe(source):
-    """  数据源订阅 , pool_columns 提供需要订阅的字段，需要更新undl_pool_info """
-    #  params = [underlyings, POOL_COLUMNS, Portfolio.undlpool_callback]
-    global UNDL_POOL
-    global UNDL_POOL_INFO
-    global POOL_COLUMNS
-    global PRE_THREADS
+    """  数据源订阅 , pool_columns 提供需要订阅的字段，需要更新 undl_pool_info """
+    # global UNDL_POOL
+    # global UNDL_POOL_INFO
+    # global POOL_COLUMNS
+    # global PRE_THREADS
     COLNUM = len(POOL_COLUMNS)
-
     if source=='wind':
         # 定义数据源对应 callback 函数
         def wind_callback(indata):
@@ -50,7 +49,7 @@ def data_subscribe(source):
         w.start()
         underlyings = list(UNDL_POOL['total'])
         w.wsq(','.join(underlyings),','.join(POOL_COLUMNS),func = wind_callback)
-
+        print('data subscribed with source %s' % source)
     elif source=='goldmine':
         vars = {'rt_last':'tick.last_price','rt_time':'tick.str_time'}
         def on_tick(tick):
@@ -91,7 +90,7 @@ def data_subscribe(source):
             if ret != 0:
                 raise Exception('Error in subscribe with ErrorCode %d' % ret)
         print(threading.enumerate())
-
+        print('data subscribed with source %s' % source)
     elif source=='goldmine_snapshot':
         vars = {'rt_last':'tick.last_price','rt_time':'tick.str_time'}
         def pull_ticks():
@@ -118,7 +117,7 @@ def data_subscribe(source):
             PRE_THREADS[source]=data_thread
         data_thread.start()
         print(threading.enumerate())
-
+        print('data subscribed with source %s' % source)
     elif source=='simulation':
         def simugen(pathtype = 'Brownian',step=1):
             """ 模拟行情数据生成器 """
@@ -136,10 +135,13 @@ def data_subscribe(source):
                         UNDL_POOL_INFO[undl] += np.sqrt(step) * np.random.randn(1,colnum)[0]
         data_thread = NewThread(target=simugen)
         if not PRE_THREADS.get(source):  # 如果是第一次建立线程则创建，否则先关闭老线程，再开启新线程
-            PRE_THREADS[source]=data_thread
+            PRE_THREADS[source] = data_thread
         else:
             PRE_THREADS[source].stop()
-            PRE_THREADS[source]=data_thread
+            PRE_THREADS[source] = data_thread
         data_thread.start()
+        print(threading.enumerate())
+        print('data subscribed with source: %s' % source)
+        print(UNDL_POOL['total'])
     else:
         print('No source infomation provided, can not subscribe!')

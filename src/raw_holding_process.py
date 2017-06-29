@@ -84,7 +84,7 @@ class rawholding_stocks:
                                     stitletrans = stitlecheck['typed_titles']
                                     stitle_empty = stitlecheck['empty_pos']
                                     stitlelen = len(stitletrans)
-                                    holddb.create_db_table(tablename=tablename+'_summary',titles=stitletrans,replace=replace)
+                                    newsum = holddb.create_db_table(tablename=tablename+'_summary',titles=stitletrans,replace=replace)
                                     rawline = fl.readline()
                                     summary = True
                                     continue
@@ -100,11 +100,10 @@ class rawholding_stocks:
                         #寻找正表标题
                         if codemark in line:
                             titles = line
-                           #codepos = titles.index(codemark)
                             titlecheck = db_assistant.gen_table_titles(titles=titles,varstypes={'TEXT':textvars})
                             titletrans = titlecheck['typed_titles']
                             # title_empty = titlecheck['empty_pos']   # 此处尤其暗藏风险，假设正表数据没有空列
-                            holddb.create_db_table(tablename=tablename,titles=titletrans,replace=replace)
+                            newtb = holddb.create_db_table(tablename=tablename,titles=titletrans,replace=replace)
                             rawline = fl.readline()
                             startwrite = True
                             continue
@@ -152,7 +151,7 @@ class rawholding_stocks:
             date = dt.datetime.today()
         if not tablename:
             tablename = self.get_holdname(inputdate=date)
-        if not titles:    # 客户端持仓表格没有资产信息，需要从其他源（手填）提取
+        if not titles[0]:    # 客户端持仓表格没有资产信息，需要从其他源（手填）提取
             with open(othersource,'r') as pof:
                 totval = float(pof.readlines()[0].strip())
         else:

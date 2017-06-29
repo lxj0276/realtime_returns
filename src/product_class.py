@@ -2,11 +2,6 @@
 import os
 import configparser as cp
 
-import numpy as np
-
-from src.holding_generate import *
-from src.global_vars import *
-from src.help_functions import *
 from src.portfolio_class import *
 from src.raw_holding_process import *
 
@@ -39,7 +34,7 @@ class Products(Portfolio):
         print('%s : updating stocks holding...' % pofname)
         rawfile = os.path.join(self._rawhold_dir,''.join([pofname,'_positions_stocks_',TODAY,'.csv']))
         obj = rawholding_stocks(hold_dbdir=self._holddb_dir,pofname=pofname)   # 创建客户端转数据库对象
-        #obj.holdlist_to_db(tabledir=rawfile,textvars=product_cf.get('stocks','text_vars_hold').split(','),replace=True)  # 写入数据库
+        obj.holdlist_to_db(tabledir=rawfile,textvars=product_cf.get('stocks','text_vars_hold').split(','),replace=True)  # 写入数据库
         holding = obj.holdlist_format(titles=product_cf.get('stocks','vars_hold').split(','))   # 从数据库提取标准格式
         holdings = holdings.append(holding,ignore_index=True)
         holdval = obj.get_totvalue(titles=product_cf.get('stocks','vars_value').split(','),othersource=os.path.join(cfp.get('dirs','other'),pofname+'.txt'))
@@ -48,7 +43,7 @@ class Products(Portfolio):
         if product_cf.options('blog'):
             print('%s : updating futures holding...' % pofname)
             obj = rawholding_futures(hold_dbdir=self._holddb_dir,pofname=pofname,logdir=dict(product_cf.items('blog')),cwdir=cwstatus_dirs)
-            holding = obj.holdlist_format(prctype='close',preday=True)
+            holding = obj.holdlist_format(prctype='close',preday=True,source='gm')
             holdings = holdings.append(holding,ignore_index=True)
             holdval = obj.get_totval(date=Yesterday,prctype = 'close')
             pofvalue.append(holdval)
