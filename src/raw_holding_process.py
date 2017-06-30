@@ -72,6 +72,7 @@ class rawholding_stocks:
                 rawline = fl.readline()
                 startwrite = False
                 summary = False
+                newtb = False
                 while rawline:
                     line = rawline.strip().split(',')
                     if not startwrite:
@@ -84,7 +85,7 @@ class rawholding_stocks:
                                     stitletrans = stitlecheck['typed_titles']
                                     stitle_empty = stitlecheck['empty_pos']
                                     stitlelen = len(stitletrans)
-                                    newsum = holddb.create_db_table(tablename=tablename+'_summary',titles=stitletrans,replace=replace)
+                                    holddb.create_db_table(tablename=tablename+'_summary',titles=stitletrans,replace=True)
                                     rawline = fl.readline()
                                     summary = True
                                     continue
@@ -106,14 +107,18 @@ class rawholding_stocks:
                             newtb = holddb.create_db_table(tablename=tablename,titles=titletrans,replace=replace)
                             rawline = fl.readline()
                             startwrite = True
+                            if not newtb:  # 表格已经存在就不必再写入
+                                break
                             continue
-                    else:
+                    elif startwrite and newtb:   # 在已找到正文并且表格是新建的情况下才开始写
                         exeline = ''.join(['INSERT INTO ', tablename, ' VALUES (', ','.join(['?']*len(line)), ')'])
                         c.execute(exeline, line)
                         conn.commit()
                     rawline = fl.readline()
-            if startwrite: #实现写入并退出循环
+            if startwrite and newtb: #实现写入并退出循环
                 print('Table '+tablename+' updated to database !')
+            elif startwrite and not newtb:
+                print('Table '+tablename+' already in the database !')
             else:  # 未能实现写入
                 print('Table '+tablename+' cannot read the main body, nothing writen !')
 

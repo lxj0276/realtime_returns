@@ -192,7 +192,11 @@ class rawtrading_futures:
                 return 1
             else:
                 raise Exception('Error in trdlist_format')
-
+        def tsratecalc(x):
+            if x=='out':
+                return tscostrate['out']
+            else:
+                return -tscostrate['in']
         with db_assistant(dbdir=self._trd_dbdir) as trddb:
             conn = trddb.connection
             exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename,' WHERE row_id >',str(self.table_output_count[tablename])])

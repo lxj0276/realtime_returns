@@ -34,7 +34,7 @@ class Products(Portfolio):
         print('%s : updating stocks holding...' % pofname)
         rawfile = os.path.join(self._rawhold_dir,''.join([pofname,'_positions_stocks_',TODAY,'.csv']))
         obj = rawholding_stocks(hold_dbdir=self._holddb_dir,pofname=pofname)   # 创建客户端转数据库对象
-        obj.holdlist_to_db(tabledir=rawfile,textvars=product_cf.get('stocks','text_vars_hold').split(','),replace=True)  # 写入数据库
+        obj.holdlist_to_db(tabledir=rawfile,textvars=product_cf.get('stocks','text_vars_hold').split(','),replace=False)  # 写入数据库
         holding = obj.holdlist_format(titles=product_cf.get('stocks','vars_hold').split(','))   # 从数据库提取标准格式
         holdings = holdings.append(holding,ignore_index=True)
         holdval = obj.get_totvalue(titles=product_cf.get('stocks','vars_value').split(','),othersource=os.path.join(cfp.get('dirs','other'),pofname+'.txt'))

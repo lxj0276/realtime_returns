@@ -38,8 +38,10 @@ class Portfolio:
         y = {}
         axes = {}
         ptscount = {}
-        while( END_TIME>= dt.datetime.now() >= START_TIME):
+        while(  START_TIME<= dt.datetime.now()<= END_TIME):
             time.sleep(FLUSH_CWSTAT)
+            if MID1_TIME < dt.datetime.now() < MID2_TIME:  # 午休时间
+                continue
             for obj in Portfolio.REGI_OBJ:   # 在画每个点之前都要先更新所有实例
                 obj.update_object()
             count = 1   # 第几个子图
@@ -57,7 +59,7 @@ class Portfolio:
                     y[obj] = [0]*PLOT_POINTS
                     x[obj][0] = dt.datetime.now()
                     y[obj][0] = (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue
-                    ptscount[obj] = 1
+                    ptscount[obj] = 0
                     # ------------------------------------------------------------------------------------
                     ax = fig.add_subplot(str(shape[0])+str(shape[1])+str(count))
                     ax.xaxis.set_major_formatter(mdate.DateFormatter('%H:%M'))
@@ -66,6 +68,7 @@ class Portfolio:
                     axes[obj] = ax
                 else:  # 此前画过图，有两个以上点
                     # 增加画图坐标点
+                    ptscount[obj] += 1
                     if ploting:  # 正常画图的情况
                         #y[obj].append((obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100)
                         y[obj][ptscount[obj]] = (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100
@@ -77,8 +80,8 @@ class Portfolio:
                     # 设置画图区域
                     #axes[obj].set_xlim(x[obj][0], x[obj][-1])
                     axes[obj].set_xlim(x[obj][0], x[obj][ptscount[obj]])
-                    ptscount[obj] += 1
-                    plt.pause(0.01)
+                    if ptscount[obj]>=2:
+                        plt.pause(0.01)
                 count +=1
             # 画图： 需要设置图例，因为每次都是画一张新图
             for id in sorted(Portfolio.PLOT_OBJ):
@@ -88,7 +91,7 @@ class Portfolio:
                     #axes[obj].legend(('return : %.4f%%' % y[obj][-1],))
                     #axes[obj].plot(x[obj][1:], y[obj][1:], linewidth=1, color='r')
                     axes[obj].legend(('return : %.4f%%' % y[obj][ptscount[obj]-1],))
-                    axes[obj].plot(x[obj][0:ptscount[obj]-1], y[obj][0:ptscount[obj]-1], linewidth=1, color='r')
+                    axes[obj].plot(x[obj][1:ptscount[obj]-1], y[obj][1:ptscount[obj]-1], linewidth=1, color='r')
         print('plot finished, plots will be saved.')
         plt.savefig(os.path.join(Portfolio.FIGDIR,TODAY+'.png'))
 
@@ -269,6 +272,7 @@ class Portfolio:
                 self._lastcwstate[strategy] = currcwstat[strategy]  # 更新前一cwstate
                 time.sleep(Portfolio.CHARGE_TIME)
 
+    ######################## ------------------------------------------ ########################################
     def read_trdlist(self,strategy, handtrd = False):
         """ 读取标准格式的交易单子 ， 返回 买入 卖出两个方向的单子 """
         if handtrd:
@@ -320,6 +324,7 @@ class Portfolio:
         if hastrd:  # 持仓更新成功，单子已经到达录入成功
             data_subscribe(SUBSCRIBE_SOURCE)
             time.sleep(Portfolio.CHARGE_TIME)
+    ######################## ------------------------------------------ ########################################
 
     def read_holdlist(self):
         """ 读取标准格式的持仓单，该产品的所有标的均应包含

@@ -4,20 +4,20 @@ import threading
 from gmsdk import md
 import numpy as np
 
-from global_vars import *
+# from global_vars import *
 from portfolio_class import *
 from new_thread.new_thread import *
 from raw_holding_process import rawholding_stocks
 
 
-def wind2gm(undllst,endmark='.tick'):
-    """ 转换为标的代码wind代码 为掘金代码 """
-    gm_dict = {'SH':'SHSE','SZ':'SZSE','CFE':'CFFEX'}
-    undl_new = []
-    for undl in undllst:
-        temp = undl.split('.')
-        undl_new.append(''.join([gm_dict[temp[1]],'.',temp[0],endmark]))
-    return undl_new
+# def wind2gm(undllst,endmark='.tick'):
+#     """ 转换为标的代码wind代码 为掘金代码 """
+#     gm_dict = {'SH':'SHSE','SZ':'SZSE','CFE':'CFFEX'}
+#     undl_new = []
+#     for undl in undllst:
+#         temp = undl.split('.')
+#         undl_new.append(''.join([gm_dict[temp[1]],'.',temp[0],endmark]))
+#     return undl_new
 
 def addfix(undl):
     if undl[0] in ('0','3'):
@@ -29,10 +29,6 @@ def addfix(undl):
 
 def data_subscribe(source):
     """  数据源订阅 , pool_columns 提供需要订阅的字段，需要更新 undl_pool_info """
-    # global UNDL_POOL
-    # global UNDL_POOL_INFO
-    # global POOL_COLUMNS
-    # global PRE_THREADS
     COLNUM = len(POOL_COLUMNS)
     if source=='wind':
         # 定义数据源对应 callback 函数
@@ -58,7 +54,6 @@ def data_subscribe(source):
                 tempdata.append(eval(vars[col]))
             UNDL_POOL_INFO[addfix(tick.sec_id)] = tempdata
         # 提取当前资产池中的代码，并转换为gm所需格式
-        #underlyings = wind2gm(list(UNDL_POOL['total']))
         underlyings = list(UNDL_POOL['total'])
         ret = md.init(
                 username="18201141877",
@@ -94,7 +89,6 @@ def data_subscribe(source):
     elif source=='goldmine_snapshot':
         vars = {'rt_last':'tick.last_price','rt_time':'tick.str_time'}
         def pull_ticks():
-            #underlyings = wind2gm(list(UNDL_POOL['total']),endmark='')
             underlyings = list(UNDL_POOL['total'])
             ticks = md.get_last_ticks(','.join(underlyings))
             for tick in ticks:

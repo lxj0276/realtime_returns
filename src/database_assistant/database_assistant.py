@@ -60,6 +60,7 @@ class db_assistant:
                     cursor.execute(''.join(['DROP TABLE ',tablename]))
                     cursor.execute(exeline)
                     print('Table '+tablename+' created!')
+                    return True
                 else:
                     print('Table '+tablename+' already exists!')
                     return False

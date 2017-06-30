@@ -17,6 +17,8 @@ Yesterday =  w.tdaysoffset(-1,TODAY).Times[0]
 YESTERDAY = Yesterday.strftime('%Y%m%d')
 
 START_TIME = dt.datetime(year=Today.year, month=Today.month,day=Today.day,hour= 8,minute=30,second=0)
+MID1_TIME = dt.datetime(year=Today.year, month=Today.month,day=Today.day,hour= 11,minute=30,second=0)
+MID2_TIME = dt.datetime(year=Today.year, month=Today.month,day=Today.day,hour= 13,minute=0,second=0)
 END_TIME = dt.datetime(year=Today.year, month=Today.month,day=Today.day,hour= 19,minute=45,second=0)
 PLOT_POINTS = int((END_TIME-START_TIME).seconds/FLUSH_CWSTAT)
 
