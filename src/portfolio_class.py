@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from src.data_subscribe import *
-#from src.global_vars import *
+from src.global_vars import *
 from src.help_functions import *
 
 
@@ -42,25 +42,24 @@ class Portfolio:
             time.sleep(FLUSH_CWSTAT)
             if MID1_TIME < dt.datetime.now() < MID2_TIME:  # 午休时间
                 continue
-            for obj in Portfolio.REGI_OBJ:   # 在画每个点之前都要先更新所有实例
+            ################# 更新所有实例 #####################
+            t1 = time.time()
+            for obj in Portfolio.REGI_OBJ:
                 obj.update_object()
+            print('t1: %f' % (time.time()-t1))
+            ################# 设置画图点 #####################
+            t2 = time.time()
             count = 1   # 第几个子图
             for id in sorted( Portfolio.PLOT_OBJ ):    #  Portfolio.PLOT_OBJ 是以增加过的画图 obj 的 regid
                 plobj = Portfolio.PLOT_OBJ[id]
                 obj = plobj[0]
                 ploting = plobj[1]
                 if obj not in x:   # 初次画图,只有一个点
-                    # ---------------------------- test zone ------------------------------------
-                    # method 1
-                    #x[obj] = [dt.datetime.now()]
-                    #y[obj] = [(obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue]
-                    # method 2
                     x[obj] = [0]*PLOT_POINTS
                     y[obj] = [0]*PLOT_POINTS
                     x[obj][0] = dt.datetime.now()
                     y[obj][0] = (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue
                     ptscount[obj] = 0
-                    # ------------------------------------------------------------------------------------
                     ax = fig.add_subplot(str(shape[0])+str(shape[1])+str(count))
                     ax.xaxis.set_major_formatter(mdate.DateFormatter('%H:%M'))
                     ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.4f%%'))
@@ -70,30 +69,30 @@ class Portfolio:
                     # 增加画图坐标点
                     ptscount[obj] += 1
                     if ploting:  # 正常画图的情况
-                        #y[obj].append((obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100)
                         y[obj][ptscount[obj]] = (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100
                     else:  # 画图暂停的情况
-                        #y[obj].append(y[obj][-1])
                         y[obj][ptscount[obj]] = y[obj][ptscount[obj]-1]
-                    #x[obj].append(dt.datetime.now())
                     x[obj][ptscount[obj]] = dt.datetime.now()
                     # 设置画图区域
-                    #axes[obj].set_xlim(x[obj][0], x[obj][-1])
                     axes[obj].set_xlim(x[obj][0], x[obj][ptscount[obj]])
                     if ptscount[obj]>=2:
                         plt.pause(0.01)
                 count +=1
-            # 画图： 需要设置图例，因为每次都是画一张新图
+            print('t2: %f' % (time.time()-t2))
+            ############## 画图： 需要设置图例，因为每次都是画一张新图   ##############
+            t3 = time.time()
             for id in sorted(Portfolio.PLOT_OBJ):
                 plobj = Portfolio.PLOT_OBJ[id]
                 obj = plobj[0]
                 if ptscount[obj]>=2:  # 至少两个点以上才能画图
-                    #axes[obj].legend(('return : %.4f%%' % y[obj][-1],))
-                    #axes[obj].plot(x[obj][1:], y[obj][1:], linewidth=1, color='r')
                     axes[obj].legend(('return : %.4f%%' % y[obj][ptscount[obj]-1],))
-                    axes[obj].plot(x[obj][1:ptscount[obj]-1], y[obj][1:ptscount[obj]-1], linewidth=1, color='r')
-        print('plot finished, plots will be saved.')
+                    axes[obj].plot(x[obj][1:ptscount[obj]], y[obj][1:ptscount[obj]], linewidth=1, color='r')
+            print('t3: %f' % (time.time()-t3))
+        #################### 画图完成，保存图像 ########################
+        print('plot finished')
         plt.savefig(os.path.join(Portfolio.FIGDIR,TODAY+'.png'))
+        print('plots saved')
+
 
     @classmethod
     def add_pool(cls,pofname,addcodes):

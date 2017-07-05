@@ -138,46 +138,66 @@ class rawtrading_futures:
         self._pofname = pofname
         self._trd_dbdir = trd_dbdir
         self._logdir = logdir
-        self._nvoldir = os.path.join(cwdir,'nVolume.txt')
+        self._cwdir = cwdir
+        # self._nvoldir = os.path.join(cwdir,'nVolume.txt')
+        # self._monthtype = os.path.join(cwdir,'IForICorIH.txt')
         self.table_output_count = {}
+        self.multi_dict = {'IF':300,'IC':200,'IH':200}
 
     def get_trdname(self,inputdate = None):
         """ 根据日期时间确定持仓表格名称，如果没有给定的话(input=None)则提取当前,input应该是datetime 格式 """
         if inputdate is None:
-            inputdate = dt.date.today().strftime('%Y%m%d')
-        return '_'.join([self._pofname,'trading_futures',inputdate])
+            inputdate = dt.date.today()
+        return '_'.join([self._pofname,'trading_futures',inputdate.strftime('%Y%m%d')])
 
-    def trdlog_to_db(self,inputdate = None):
+    def trdlog_to_db(self,date = None,tablename=None):
         """
-        从交易记录读取信息并生成pd.dataframe,
-        写入数据库，因为数据比较少（100当才100行），因为每次都全部写入
+        从交易记录读取信息并写入数据库
+        写入数据库，因为数据比较少（100档才100行），因为每次都全部写入
+        需要考虑包含灵活换月的情况
         """
-        if inputdate is None:
-            inputdate = dt.date.today().strftime('%Y%m%d')
-        logdir = os.path.join(self._logdir,''.join(['tradelog_',inputdate,'.txt']))
+        if date is None:
+            date = dt.date.today()
+        if tablename is None:
+            tablename = self.get_trdname(date)
+
+
+
+        logdir = os.path.join(self._logdir,'tradelog',''.join(['tradelog_',date.strftime('%Y%m%d'),'.txt']))
         with open(logdir) as fl:
             line = fl.readline()
             trdlogs = []
-            names = ['date','time','action']
             namefull = False
+            names = ['date','time','trade_action']
             while line:
                 vars = line.strip().split()
+                monthchg = len(vars)==16
+                if monthchg:  # 灵活换月
+                    startnum = 5
+                else:
+                    startnum = 3
                 trdlog = vars[:3]
-                trdlog += [v.split('=')[1] for v in vars[3:]]
+                trdlog += [v.split('=')[1] for v in vars[startnum:]]
                 if not namefull:
-                    names += [v.split('=')[0] for v in vars[3:]]
+                    names += [v.split('=')[0] for v in vars[startnum:]]
                     namefull = True
+                if not monthchg:    # 考虑到有肯能在灵活换月当天还会有交易，需要确保每行等长（灵活换月还包含nextqhprice）
+                    trdlog.insert(5,'NaN')
+                    if len(names)<14:
+                        names.insert(5,'nextqhprice')
                 trdlogs.append(trdlog)
                 line = fl.readline()
         fulllog = pd.DataFrame(trdlogs,columns=names)
-        tablename = self.get_trdname()
         with db_assistant(dbdir=self._trd_dbdir) as trddb:
             conn = trddb.connection
-            fulllog.to_sql(name=tablename,con=conn)
+            fulllog.to_sql(name=tablename,con=conn,if_exists='replace')
 
-    def trdlist_format(self,titles,tscostrate,tablename=None,outdir=None):
+    def trdlist_format(self,titles,tscostrate,date=None,tablename=None,outdir=None):
+        """ 生成标准交易单 ['code','name','num','multi','prc','tscost','inout'] """
+        if date is None:
+            date = dt.date.today()
         if not tablename:
-            tablename = self.get_trdname()
+            tablename = self.get_trdname(inputdate=date)
         def marktrans(x):
             if '开仓' in x:
                 return 'in'
@@ -201,31 +221,26 @@ class rawtrading_futures:
             conn = trddb.connection
             exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename,' WHERE row_id >',str(self.table_output_count[tablename])])
             trades = pd.read_sql(exeline,conn)
-            trades.columns = ['code','name','num','prc','inout']
-            # 剔除非股票持仓和零持仓代码
+
+            trades.columns = ['code','name','num','multi','prc','inout']
             trades = trades[trades['num']>0]
             trades['inout'] = trades['inout'].map(marktrans)
             trades['num'] = trades['num']*trades['inout'].map(reverseval)*trades['code']
-            trades['val'] = trades['num']*trades['prc']
-            trades['tscost'] = trades['val']*trades['inout'].map(tsratecalc)
+            trades['tscost'] = trades['num']*trades['prc']*trades['inout'].map(tsratecalc)
             trades = trades.sort_values(by=['code'],ascending=[1])
-            trades = trades.ix[:,['code','name','num','prc','val','tscost','inout']]
+            trades = trades.ix[:,['code','name','num','prc','tscost','inout']]
             self.table_output_count[tablename] += trades.shape[0]
+
             if outdir:
-                trades.to_csv(outdir,header = True,index=False)
+                trades.to_csv(outdir,header=True,index=False)
             else:
                 return trades
 
 
 
 if __name__=='__main__':
-    import configparser as cp
-    cf = cp.ConfigParser()
-    cf.read(r'E:\realtime_monitors\realtime_returns\configures\BaiQuanJinQu1.ini')
-
-    print(cf.sections())
-    print(cf.options('blog'))
-    # print(cf.items('stocks'))
-    # print(cf.get('stocks','text_vars_hold'))
-    # print(cf.get('stocks','text_vars_hold').split(','))
-    # print(cf.options('cwstate'))
+    t=rawtrading_futures(pofname='test',trd_dbdir='test_rawtrading.db',logdir=r'\\BQ2_ICHEDGE\blog',cwdir=r'\\BQ2_ICHEDGE\cwstate')
+    t.trdlog_to_db(date=dt.datetime(year=2017,month=5,day=22))
+    t.trdlog_to_db(date=dt.datetime(year=2017,month=5,day=24))
+    t.trdlog_to_db(date=dt.datetime(year=2017,month=6,day=15))
+    #print(t.trdlist_format(titles='',tscostrate=0))

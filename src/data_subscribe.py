@@ -136,6 +136,5 @@ def data_subscribe(source):
         data_thread.start()
         print(threading.enumerate())
         print('data subscribed with source: %s' % source)
-        print(UNDL_POOL['total'])
     else:
         print('No source infomation provided, can not subscribe!')

@@ -39,8 +39,10 @@ class rawholding_stocks:
                 return 'NEWSTOCK'
             else:
                 return undl
+        elif source == 'simulation':
+            return '.'.join([undl,'SIM'])
         else:
-            return undl
+            raise Exception('Wrong data source! ')
 
     def __init__(self,hold_dbdir,pofname):
         self._hold_dbdir = hold_dbdir
