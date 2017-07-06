@@ -258,4 +258,4 @@ if __name__=='__main__':
     # t.trdlog_to_db(0.1,date=dt.datetime(year=2017,month=5,day=24))
     # t.trdlog_to_db(0.2,date=dt.datetime(year=2017,month=6,day=15))
 
-    print(t.trdlist_format(date=dt.datetime(year=2017,month=6,day=15)))
+    print(t.trdlist_format(date=dt.datetime(year=2017,month=5,day=24)))

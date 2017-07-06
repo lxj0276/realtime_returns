@@ -11,7 +11,7 @@ class Products(Portfolio):
     def __init__(self,pofname,configdir):
         # 读取文件路径配置
         cfp = cp.ConfigParser()
-        cfp.read(os.path.join(configdir,'_directories.ini'))
+        cfp.read(os.path.join(configdir,'local_directories.ini'))
         # 读取产品配置
         product_cf = cp.ConfigParser()
         product_cf.read(os.path.join(configdir,'.'.join([pofname,'ini'])))

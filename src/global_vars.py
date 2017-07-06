@@ -6,7 +6,7 @@ VERSION = 'Testing'
 UNDL_POOL = {'total':set([])}               # 数据结构 dict： {'total' : 所有标的 set , 'pofname1': {'stocks': set , 'futures': set , ...} , 'pofname2': {...} , ... }
 UNDL_POOL_INFO = {}                          # 存储以各个品种code为key的字典
 POOL_COLUMNS = ['rt_last']                 #rt_time,rt_pct_chg'
-SUBSCRIBE_SOURCE = 'goldmine_snapshot'                         #  'goldmine_snapshot'  'simulation'   'goldmine'  'wind'
+SUBSCRIBE_SOURCE = 'simulation' #'goldmine_snapshot'                         #  'goldmine_snapshot'  'simulation'   'goldmine'  'wind'
 PRE_THREADS = {}
 FLUSH_CWSTAT = 1   # 画图更新时间间隔 秒
 
@@ -19,7 +19,7 @@ YESTERDAY = Yesterday.strftime('%Y%m%d')
 START_TIME = dt.datetime(year=Today.year, month=Today.month,day=Today.day,hour= 8,minute=30,second=0)
 MID1_TIME = dt.datetime(year=Today.year, month=Today.month,day=Today.day,hour= 11,minute=30,second=0)
 MID2_TIME = dt.datetime(year=Today.year, month=Today.month,day=Today.day,hour= 13,minute=0,second=0)
-END_TIME = dt.datetime(year=Today.year, month=Today.month,day=Today.day,hour= 15,minute=40,second=0)
+END_TIME = dt.datetime(year=Today.year, month=Today.month,day=Today.day,hour= 17,minute=40,second=0)
 PLOT_POINTS = int((END_TIME-START_TIME).seconds/FLUSH_CWSTAT)
 
 # 生成股票持仓需要过滤的代码

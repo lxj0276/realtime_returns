@@ -108,7 +108,9 @@ class Portfolio:
             print('t4: %f' % (time.time()-t4))
         #################### 画图完成，保存图像 ########################
         print('plot finished')
-        plt.savefig(os.path.join(Portfolio.FIGDIR,TODAY+'.png'))
+        figpath = os.path.join(Portfolio.FIGDIR,TODAY+'.png')
+        if not os.path.exists(figpath):
+            plt.savefig(figpath)
         print('plots saved')
 
 
