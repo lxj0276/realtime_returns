@@ -6,7 +6,6 @@ from src.portfolio_class import *
 from src.raw_holding_process import *
 
 
-
 class Products(Portfolio):
     """ 继承portfolio得类，将Portfolio类连接上数据库，并不是所有产品都会需要数据库 """
     def __init__(self,pofname,configdir):

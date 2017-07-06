@@ -171,21 +171,12 @@ class rawholding_stocks:
 
 
 class rawholding_futures:
-    # 所提取的信息应集中于一个期货账户，如果同意产品有其他账户，应在创建一个该类的对象
-    def __init__(self,hold_dbdir,pofname,logdir,cwdir):
-        self._hold_dbdir = hold_dbdir  # 暂未使用
-        self._pofname = pofname
-        self._logdir = logdir
-        self._cwdir = cwdir
-        self._multiplier = {'IF':300,'IC':200,'IH':200}
-
-    def get_holdname(self,inputdate = None):
-        """ 根据日期时间确定持仓表格名称，如果没有给定的话(input=None)则提取当前,input应该是datetime 格式 """
-        if inputdate is None:
-            inputdate = dt.datetime.today().strftime('%Y%m%d')
-        return '_'.join([self._pofname,'holding_futures',inputdate])
-
-    def get_3rd_friday(self,date=None):
+    """
+    期货持仓信息：所提取的信息应集中于一个期货账户，如果同一产品有其他账户，应在创建一个该类的对象；
+    但可以有多个期货策略
+    """
+    @classmethod
+    def get_3rd_friday(cls,date=None):
         """ 获得date日期对应的主力合约的交割日期 """
         if date is None:
             date = dt.datetime.today()
@@ -207,9 +198,10 @@ class rawholding_futures:
             else:
                 nextmonth = thismonth+1
                 nextyear = thisyear
-            return self.get_3rd_friday(date=dt.date(year=nextyear,month=nextmonth,day=1))
+            return rawholding_futures.get_3rd_friday(date=dt.date(year=nextyear,month=nextmonth,day=1))
 
-    def get_contracts_real(self,date=None,cttype = 'IC'):
+    @classmethod
+    def get_contracts_real(cls,date=None,cttype = 'IC'):
         """ 返回 date  多对应日期当天的各合约,实际存在的合约,不是我们自定义的合约 """
         if date is None:
             date = dt.datetime.today()
@@ -238,11 +230,12 @@ class rawholding_futures:
                   'back2':''.join([cttype,back2.strftime('%y%m')])}
         return result
 
-    def get_contracts_ours(self,date=None,cttype = 'IC'):
+    @classmethod
+    def get_contracts_ours(cls,date=None,cttype = 'IC'):
         """ 返回我们当前使用的合约代码，第三个周四就换到下一个月，期间次月合约为None """
         if date is None:
             date = dt.datetime.today()
-        real_contracts = self.get_contracts_real(date=date,cttype = cttype)
+        real_contracts = rawholding_futures.get_contracts_real(date=date,cttype = cttype)
         w.start()
         near1_deliv = w.wss(''.join([real_contracts['near1'],'.CFE']),'lastdelivery_date').Data[0][0]
         timediff = w.tdayscount(date,near1_deliv).Data[0][0]
@@ -250,6 +243,19 @@ class rawholding_futures:
             real_contracts['near1'] = real_contracts['near2']
             real_contracts['near2'] = None
         return real_contracts
+
+    def __init__(self,hold_dbdir,pofname,logdir,cwdir):
+        self._hold_dbdir = hold_dbdir  # 暂未使用
+        self._pofname = pofname
+        self._logdir = logdir
+        self._cwdir = cwdir
+        self._multiplier = {'IF':300,'IC':200,'IH':200}
+
+    def get_holdname(self,inputdate = None):
+        """ 根据日期时间确定持仓表格名称，如果没有给定的话(input=None)则提取当前,input应该是datetime 格式 """
+        if inputdate is None:
+            inputdate = dt.datetime.today().strftime('%Y%m%d')
+        return '_'.join([self._pofname,'holding_futures',inputdate])
 
     def get_holdnum(self,date=None):
         """ 提取期货持有手数，如果未指定日期则默认为当前持有，通过cwstat.txt，如果给定日期则需要在cwstate_history寻找 """
@@ -286,7 +292,7 @@ class rawholding_futures:
                 stratinfo = strat.split('_')
                 cttype = stratinfo[1].upper()
                 montype = stratinfo[0]
-                contracts = self.get_contracts_ours(date=date,cttype=cttype)
+                contracts = rawholding_futures.get_contracts_ours(date=date,cttype=cttype)
                 num = holdnum[strat]
                 if source=='wind':
                     ######  wind data ########
@@ -329,14 +335,13 @@ class rawholding_futures:
             md.init('18201141877','Wqxl7309')
             if prctype=='settle':
                 prctype = 'settle_price'   # 转为掘金格式
-
         holdnum = self.get_holdnum(date=date)
         holding = pd.DataFrame()
         for strat in self._logdir:
             stratinfo = strat.split('_')
             cttype = stratinfo[1].upper()
             montype = stratinfo[0]
-            name = self.get_contracts_ours(date=date,cttype=cttype)[montype]
+            name = rawholding_futures.get_contracts_ours(date=date,cttype=cttype)[montype]
             code = rawholding_stocks.addfix(name)
             num = holdnum[strat]
             multi = self._multiplier[cttype]
@@ -358,3 +363,5 @@ class rawholding_futures:
         else:
             return holding
 
+if __name__=='__main__':
+    print(rawholding_futures.get_contracts_ours())

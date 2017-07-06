@@ -38,22 +38,25 @@ class Portfolio:
         y = {}
         axes = {}
         ptscount = {}
+        loopcount = 0
         while(  START_TIME<= dt.datetime.now()<= END_TIME):
-            time.sleep(FLUSH_CWSTAT)
+            #time.sleep(FLUSH_CWSTAT)
             if MID1_TIME < dt.datetime.now() < MID2_TIME:  # 午休时间
                 continue
-            ################# 更新所有实例 #####################
+            ################# PART1 : 更新所有实例 #####################
             t1 = time.time()
             for obj in Portfolio.REGI_OBJ:
                 obj.update_object()
             print('t1: %f' % (time.time()-t1))
-            ################# 设置画图点 #####################
+            ################# PART2 : 设置画图点 #####################
             t2 = time.time()
             count = 1   # 第几个子图
             for id in sorted( Portfolio.PLOT_OBJ ):    #  Portfolio.PLOT_OBJ 是以增加过的画图 obj 的 regid
+                #t21 = time.time()
                 plobj = Portfolio.PLOT_OBJ[id]
                 obj = plobj[0]
                 ploting = plobj[1]
+                #print('   t21: %f' % (time.time()-t21))
                 if obj not in x:   # 初次画图,只有一个点
                     x[obj] = [0]*PLOT_POINTS
                     y[obj] = [0]*PLOT_POINTS
@@ -67,19 +70,27 @@ class Portfolio:
                     axes[obj] = ax
                 else:  # 此前画过图，有两个以上点
                     # 增加画图坐标点
+                    #t22 = time.time()
                     ptscount[obj] += 1
                     if ploting:  # 正常画图的情况
                         y[obj][ptscount[obj]] = (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100
                     else:  # 画图暂停的情况
                         y[obj][ptscount[obj]] = y[obj][ptscount[obj]-1]
                     x[obj][ptscount[obj]] = dt.datetime.now()
+                    #print('   t22: %f' % (time.time()-t22))
                     # 设置画图区域
+                    #t23 = time.time()
+                    #t231 = time.time()
                     axes[obj].set_xlim(x[obj][0], x[obj][ptscount[obj]])
-                    if ptscount[obj]>=2:
-                        plt.pause(0.01)
+                    #print('     t231: %f' % (time.time()-t231))
+                    #t232 = time.time()
+                    # if ptscount[obj]>=2:
+                    #     plt.pause(0.0000001)
+                    #print('     t232: %f' % (time.time()-t232))
+                    #print('   t23: %f' % (time.time()-t23))
                 count +=1
             print('t2: %f' % (time.time()-t2))
-            ############## 画图： 需要设置图例，因为每次都是画一张新图   ##############
+            ############## PART3 : 画图设置： 需要设置图例，因为每次都是画一张新图   ##############
             t3 = time.time()
             for id in sorted(Portfolio.PLOT_OBJ):
                 plobj = Portfolio.PLOT_OBJ[id]
@@ -88,6 +99,13 @@ class Portfolio:
                     axes[obj].legend(('return : %.4f%%' % y[obj][ptscount[obj]-1],))
                     axes[obj].plot(x[obj][1:ptscount[obj]], y[obj][1:ptscount[obj]], linewidth=1, color='r')
             print('t3: %f' % (time.time()-t3))
+            ############## PART4 ： 更新图表，所有子图一起更新 ##############################
+            t4 = time.time()
+            if loopcount>=2:
+                #plt.pause(0.1)
+                plt.pause(FLUSH_CWSTAT)
+            loopcount+=1
+            print('t4: %f' % (time.time()-t4))
         #################### 画图完成，保存图像 ########################
         print('plot finished')
         plt.savefig(os.path.join(Portfolio.FIGDIR,TODAY+'.png'))
@@ -154,7 +172,7 @@ class Portfolio:
             self._plotid = Portfolio.PLOT_NUM                         # 设定 plotid 为第几个需要画的图
             Portfolio.PLOT_OBJ[self._plotid] = [self,True]            # 第二个布尔值为画图开关，当停止画图时会被设置为False
         Portfolio.REGI_OBJ.append(self)                                # 将该实例对象添加到类的实例记录列表
-        print(' %s : portfolio created ! ' % self._pofname)
+        print('%s : portfolio created ! ' % self._pofname)
 
     def get_pofvalue(self):
         with open(self._pofval_dir, 'r') as pofinfo:
