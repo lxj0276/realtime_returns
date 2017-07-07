@@ -8,7 +8,7 @@ UNDL_POOL_INFO = {}                          # 存储以各个品种code为key�
 POOL_COLUMNS = ['rt_last']                 #rt_time,rt_pct_chg'
 SUBSCRIBE_SOURCE = 'simulation' #'goldmine_snapshot'                         #  'goldmine_snapshot'  'simulation'   'goldmine'  'wind'
 PRE_THREADS = {}
-FLUSH_CWSTAT = 1   # 画图更新时间间隔 秒
+FLUSH_CWSTAT = 0.5   # 画图更新时间间隔 秒
 
 w.start()
 Today = dt.datetime.today()
@@ -27,7 +27,4 @@ refound_sz = ['131810','131811','131800','131809','131801','131802','131803','13
 refound_sh = ['204001','204007','204002','204003','204004','204014','204028','204091','204182']
 other_vars = ['131990','888880','SHRQ88','SHXGED','SZRQ88','SZXGED','511990','732855','NEWSTOCK']
 HOLD_FILTER = refound_sz+refound_sh+other_vars
-
-# 期货合约乘数字典
-MULTIPLIERS = {'IC1706.CFE':200}
 

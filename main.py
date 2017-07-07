@@ -9,15 +9,15 @@ import threading
 
 ######### 提取原始文件
 nametrans = {
-#    'bq1':'BaiQuan1',
-#    'bq2':'BaiQuan2',
+    'bq1':'BaiQuan1',
+    'bq2':'BaiQuan2',
     'bq3':'BaiQuan3',
-#    'jq1':'BaiQuanJinQu1',
+    'jq1':'BaiQuanJinQu1',
     'hj1':'BaiQuanHuiJin1',
-#    'ls1':'BaiQuanLiShi1',
-#    'gd2':'GuoDaoLiShi2',
-#    'xy7':'XingYing7',
-#    'ms1':'BaiQuanMS1'
+    # 'ls1':'BaiQuanLiShi1',
+    # 'gd2':'GuoDaoLiShi2',
+    'xy7':'XingYing7',
+    'ms1':'BaiQuanMS1'
 }
 
 fromdir = r'C:\Users\Jiapeng\Desktop\tempholdings'
