@@ -21,9 +21,9 @@ class rawtrading_stocks:
         if undlsize<6:
             undl = ''.join(['0'*(6-undlsize),undl])
         if undl[0] in ('0','3'):
-            return '.'.join([undl,'.SZ'])
+            return '.'.join([undl,'SZ'])
         elif undl[0] in ('6'):
-            return '.'.join([undl,'.SH'])
+            return '.'.join([undl,'SH'])
         else:
             return undl
 
@@ -66,7 +66,7 @@ class rawtrading_stocks:
                             titlelen = len(titletrans)
                             # title_empty = titlecheck['empty_pos']   # 此处尤其暗藏风险，假设正表数据没有空列
                             newcreated = trddb.create_db_table(tablename=tablename,titles=titletrans,replace=replace)
-                            if not newcreated:
+                            if not newcreated:  # 读取已经存储过的行数
                                 processed_lines = c.execute(''.join(['SELECT COUNT(',codemark,') FROM ',tablename])).fetchall()[0][0]
                             else:
                                 self.table_output_count[tablename] = 0    # 如果表格是新创建的话，需要初始化输出行数记录
@@ -75,10 +75,10 @@ class rawtrading_stocks:
                             continue
                     else:  # 已经找到了标题
                         linecount += 1
-                        if linecount>processed_lines:
+                        if linecount>processed_lines:   # 只在有比数据库已存储的数据行更多的行提供时才继续写入
                             line = [linecount]+line
                             exeline = ''.join(['INSERT INTO ', tablename, ' VALUES (', ','.join(['?']*titlelen), ')'])
-                            line[codepos] = rawtrading_stocks.undl_backfix(line[codepos])   # 增加 .SZ ,.SH 等证券后缀
+                            #line[codepos] = rawtrading_stocks.undl_backfix(line[codepos])   # 增加 .SZ ,.SH 等证券后缀
                             c.execute(exeline, line)
                             conn.commit()
                     rawline = fl.readline()
@@ -110,9 +110,9 @@ class rawtrading_stocks:
                 raise Exception('Error in trdlist_format')
         def tsratecalc(x):
             if x=='out':
-                return tscostrate['out']  # 卖出会有印花税
+                return tscostrate+1/1000  # 卖出会有印花税
             else:
-                return -tscostrate['in']
+                return -tscostrate
         with db_assistant(dbdir=self._trd_dbdir) as trddb:
             conn = trddb.connection
             exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename,' WHERE row_id >',str(self.table_output_count[tablename])])
@@ -120,13 +120,14 @@ class rawtrading_stocks:
             trades.columns = ['code','name','num','prc','inout']
             # 剔除非股票持仓和零持仓代码
             trades = trades[~ trades['code'].isin(tofilter)]
+            trades['code'] = trades['code'].map(rawholding_stocks.addfix)
             trades = trades[trades['num']>0]
             trades['inout'] = trades['inout'].map(marktrans)
-            trades['num'] = trades['num']*trades['inout'].map(reverseval)*trades['code']
-            trades['val'] = trades['num']*trades['prc']
-            trades['tscost'] = trades['val']*trades['inout'].map(tsratecalc)
+            trades['num'] = trades['num']*trades['inout'].map(reverseval)
+            trades['tscost'] = trades['num']*trades['prc']*trades['inout'].map(tsratecalc)
+            trades['multi'] = 1
             trades = trades.sort_values(by=['code'],ascending=[1])
-            trades = trades.ix[:,['code','name','num','prc','val','tscost','inout']]
+            trades = trades.ix[:,['code','name','num','multi','prc','tscost','inout']]
             self.table_output_count[tablename] += trades.shape[0]
             if outdir:
                 trades.to_csv(outdir,header = True,index=False)
@@ -237,6 +238,7 @@ class rawtrading_futures:
             conn = trddb.connection
             exeline = ''.join(['SELECT code,name,num,multi,prc,tscost,inout,sn FROM ',tablename,' WHERE sn >',str(self.maxsn)])
             trades = pd.read_sql(exeline,conn)
+            trades['tscost'] = -np.abs(trades['num']*trades['multi']*trades['prc']*trades['tscost'])
             self.maxsn = np.max(trades['sn'].values)
             trades = trades.drop('sn',axis=1)
             print(self.maxsn)
@@ -259,3 +261,10 @@ if __name__=='__main__':
     # t.trdlog_to_db(0.2,date=dt.datetime(year=2017,month=6,day=15))
 
     print(t.trdlist_format(date=dt.datetime(year=2017,month=5,day=24)))
+
+    cfp2 = cp.ConfigParser()
+    cfp2.read(r'E:\realtime_monitors\realtime_returns\configures\BaiQuan1.ini')
+    t2 = rawtrading_stocks(pofname='test',trd_dbdir='test_rawtrading.db')
+    tbdir = r'C:\Users\Jiapeng\Desktop\test\bq1_trade_20170711.csv'
+    t2.trdlist_to_db(textvars=cfp2.get('stocks','text_vars_trade').split(','),tabledir=tbdir,tablename=None,codemark='证券代码',replace=False)
+    print(t2.trdlist_format(titles=cfp2.get('stocks','vars_trade').split(','),tscostrate=0.0002,tablename=None,outdir=None))

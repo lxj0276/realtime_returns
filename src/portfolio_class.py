@@ -14,7 +14,7 @@ import pandas as pd
 from src.data_subscribe import *
 from src.global_vars import *
 from src.help_functions import *
-
+from raw_trading_process import *
 
 
 class Portfolio:
@@ -94,7 +94,12 @@ class Portfolio:
             plt.savefig(figpath)
         print('plots saved')
 
-    ###### ---------------------------------------------------------------------------###############
+
+
+
+
+    ####################################################################################################################
+    ####################################################################################################################
     @classmethod
     def update_undlpool_v2(cls):
         """ 更新实例状态并画图 """
@@ -105,74 +110,70 @@ class Portfolio:
         mpl.rcParams['font.sans-serif'] = ['SimHei'] #用来正常显示中文标签
         fig=plt.figure(figsize=(20,20))
         fig.canvas.set_window_title('  '.join([TODAY,'VERSION : '+VERSION]))
+
         xaxis = {}
         yaxis = {}
         axes = {}
-        ptscount = {}
-        loopcount = 0
-        while(  START_TIME<= dt.datetime.now()<= END_TIME):
-            if MID1_TIME < dt.datetime.now() < MID2_TIME:  # 午休时间
-                continue
-            ################# PART1 : 更新所有实例 ,暂停画图的也要更新，因为x轴为时间正常更新 #####################
-            t1 = time.time()
-            for obj in Portfolio.REGI_OBJ:
-                obj.update_object()
-            print('t1: %f' % (time.time()-t1))
-            ################# PART2 : 设置画图 并 画图 #####################
-            t2 = time.time()
-            count = 1   # 第几个子图
-            for id in sorted( Portfolio.PLOT_OBJ ):    #  Portfolio.PLOT_OBJ 是以增加过的画图 obj 的 regid
+        lns = {}
+        count = 1
+        for id in sorted( Portfolio.PLOT_OBJ ):    #  Portfolio.PLOT_OBJ 是以增加过的画图 obj 的 regid
+            plobj = Portfolio.PLOT_OBJ[id]
+            obj = plobj[0]
+            if obj not in xaxis:   # 初次画图,只有一个点
+                xaxis[obj] = [dt.datetime.now()]
+                yaxis[obj] = [(obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100]
+                ax = fig.add_subplot(str(shape[0])+str(shape[1])+str(count))
+                ax.xaxis.set_major_formatter(mdate.DateFormatter('%H:%M'))
+                ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.4f%%'))
+                ax.set_title(obj._pofname)
+                ln, = ax.plot(xaxis[obj], yaxis[obj], linewidth=1, color='r')
+                axes[obj] = ax
+                lns[obj] = ln
+                count +=1
+
+        def init():
+            for id in sorted( Portfolio.PLOT_OBJ ):
                 plobj = Portfolio.PLOT_OBJ[id]
                 obj = plobj[0]
-                ploting = plobj[1]
-                ######### 计算坐标点,如果是初次画图还需设置图像对象 ##############
-                if obj not in xaxis:   # 初次画图,只有一个点
-                    xaxis[obj] = [0]*PLOT_POINTS
-                    yaxis[obj] = [0]*PLOT_POINTS
-                    xaxis[obj][0] = dt.datetime.now()
-                    yaxis[obj][0] = (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100
-                    ptscount[obj] = 0
-                    ax = fig.add_subplot(str(shape[0])+str(shape[1])+str(count))
-                    ax.xaxis.set_major_formatter(mdate.DateFormatter('%H:%M'))
-                    ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.4f%%'))
-                    ax.set_title(obj._pofname)
-                    axes[obj] = ax
-                    count +=1
-                else:  # 此前画过图，有两个以上点 计算画图坐标点
-                    if ploting:   # 正常画图的情况
-                        yaxis[obj][ptscount[obj]] = (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100
-                    else:        # 画图暂停的情况，y轴延续上一个数值
-                        yaxis[obj][ptscount[obj]] = yaxis[obj][ptscount[obj]-1]
-                    xaxis[obj][ptscount[obj]] = dt.datetime.now()
-                # 设置图例，因为每次都是画一张新图
-                def init():
-                    axes[obj].set_xlim(xaxis[obj][0], xaxis[obj][ptscount[obj]])
-                    axes[obj].legend(('return : %.4f%%' % yaxis[obj][ptscount[obj]],))
-                def data_gen():
-                    for dumi in range(ptscount[obj]):
-                        yield yaxis[obj][0:ptscount[obj]]
-                def update(ydata):
-                    axes[obj].plot(xaxis[obj][0:ptscount[obj]], ydata, linewidth=1, color='r')
-                if ptscount[obj]>=1:  # 至少两个点以上才能画图
-                    # axes[obj].set_xlim(xaxis[obj][0], xaxis[obj][ptscount[obj]])
-                    # axes[obj].legend(('return : %.4f%%' % yaxis[obj][ptscount[obj]],))
-                    # axes[obj].plot(xaxis[obj][0:ptscount[obj]], yaxis[obj][0:ptscount[obj]], linewidth=1, color='r')
-                    man.FuncAnimation(fig=fig,func=update,frames=data_gen,init_func=init)
-                ptscount[obj] += 1
-            print('t2: %f' % (time.time()-t2))
-            ############## PART3 ： 更新图表，所有子图一起更新 ##############################
-            t3 = time.time()
-            if loopcount>=1:
-                #plt.pause(FLUSH_CWSTAT)
-                plt.show()
-            loopcount+=1
-            print('t3: %f' % (time.time()-t3))
-        #################### 画图完成，保存图像 ########################
+                axes[obj].set_xlim(xaxis[obj][0], xaxis[obj][-1])
+                axes[obj].legend(('return : %.4f%%' % yaxis[obj][-1],))
+
+        def data_gen():
+            while(  START_TIME<= dt.datetime.now()<= END_TIME):
+                if MID1_TIME < dt.datetime.now() < MID2_TIME:  # 午休时间
+                    continue
+                else:
+                    time.sleep(FLUSH_CWSTAT)
+                    for id in sorted( Portfolio.PLOT_OBJ ):
+                        plobj = Portfolio.PLOT_OBJ[id]
+                        obj = plobj[0]
+                        ploting = plobj[1]
+                        if ploting:   # 正常画图的情况
+                            yaxis[obj].append( (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100 )
+                        else:        # 画图暂停的情况，y轴延续上一个数值
+                            yaxis[obj].append( yaxis[obj][-1] )
+                        xaxis[obj].append(dt.datetime.now())
+                yield [xaxis,yaxis]
+
+        def update(data):
+            for id in sorted( Portfolio.PLOT_OBJ ):
+                plobj = Portfolio.PLOT_OBJ[id]
+                obj = plobj[0]
+                lns[obj].set_data(data[0][obj],data[1][obj])
+
+        man.FuncAnimation(fig=fig,func=update,frames=data_gen,init_func=init)
+        plt.show()
+
         print('plot finished')
         figpath = os.path.join(Portfolio.FIGDIR,TODAY+'.png')
         if not os.path.exists(figpath):
             plt.savefig(figpath)
         print('plots saved')
+
+    ###################################################################################################################
+    ####################################################################################################################
+
+
 
 
     @classmethod
@@ -479,7 +480,8 @@ class Portfolio:
             Portfolio.PLOT_OBJ[self._plotid][1] = True
 
     def stopplot(self):
-        Portfolio.PLOT_OBJ[self._plotid][1] = False
+        if self._plotid in Portfolio.PLOT_OBJ:
+            Portfolio.PLOT_OBJ[self._plotid][1] = False
 
     def update_object(self):
         """ 定时扫描交易状态 trdlist_dir handtrd_dir 并根据交易更新 holdlist，同时更新收益 """
