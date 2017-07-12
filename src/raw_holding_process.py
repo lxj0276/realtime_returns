@@ -17,6 +17,8 @@ class rawholding_stocks:
 
     @staticmethod
     def addfix(undl,source=SUBSCRIBE_SOURCE,endmark=''):
+        if undl[0].isnumeric() and len(undl[0])<6:
+            undl = ''.join(['0'*(6-len(undl)),undl])
         if 'goldmin' in source:
             if undl[0:2] in ('IF','IC','IH'):
                 return '.'.join(['CFFEX',undl+endmark])
@@ -317,7 +319,7 @@ class rawholding_futures:
                     totvals = contents[2]    # 将时间也包括上
         return totvals+diffval
 
-    def holdlist_format(self,date=None,prctype='close',preday=True,outdir=None,source='wind'):
+    def holdlist_format(self,date=None,prctype='close',outdir=None,source='wind'):
         """ 提取标准格式, 与get_totval 平行，不会互相调用 """
         if date is None:
             date = dt.datetime.today()
@@ -326,10 +328,6 @@ class rawholding_futures:
             w.start()
             if date is None:
                 date = dt.datetime.today()
-            if preday: # 画图需要前一日价格作为持仓，计算分红需要当日价格作为持仓
-                predate = w.tdaysoffset(-1,date)
-            else:
-                predate = date
         elif source=='gm':
             ######  掘金数据源 #######
             md.init('18201141877','Wqxl7309')
@@ -347,7 +345,7 @@ class rawholding_futures:
             multi = self._multiplier[cttype]
             if source=='wind':
                 ############# wind 数据源
-                prc = w.wsd('.'.join([name,'CFE']),prctype,predate,predate).Data[0][0]
+                prc = w.wsd('.'.join([name,'CFE']),prctype,date,date).Data[0][0]
             elif source=='gm':
                 ######### 掘金数据
                 lastbar = md.get_last_n_dailybars(symbol='.'.join(['CFFEX',name]),n=1,end_time=date.strftime('%Y-%m-%d'))[0]
@@ -362,6 +360,3 @@ class rawholding_futures:
             holding.to_csv(outdir,header = True,index=False)
         else:
             return holding
-
-if __name__=='__main__':
-    print(rawholding_futures.get_contracts_ours())

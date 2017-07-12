@@ -14,8 +14,8 @@ nametrans = {
     'bq3':'BaiQuan3',
     'jq1':'BaiQuanJinQu1',
     'hj1':'BaiQuanHuiJin1',
-    # 'ls1':'BaiQuanLiShi1',
-    # 'gd2':'GuoDaoLiShi2',
+    'ls1':'BaiQuanLiShi1',
+    'gd2':'GuoDaoLiShi2',
     'xy7':'XingYing7',
     'ms1':'BaiQuanMS1'
 }
@@ -40,6 +40,8 @@ cfp = cp.ConfigParser()
 cfp.read(os.path.join(configdir,'local_directories.ini'))
 
 for p in nametrans:
+    if p!='ls1':
+        continue
     pofname = nametrans[p]
     ############ 检测是否有新产品，如果有需要建立新文件夹 ##########
     for dirname in cfp.options('dirs'):

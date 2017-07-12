@@ -30,23 +30,24 @@ class rawtrading_stocks:
     def __init__(self,pofname,trd_dbdir):
         self._pofname = pofname
         self._trd_dbdir = trd_dbdir
-        self.table_output_count = {}
 
     def get_trdname(self,inputdate = None):
         """ 根据日期时间确定持仓表格名称，如果没有给定的话(input=None)则提取当前,input应该是datetime 格式 """
         if inputdate is None:
-            inputdate = dt.date.today().strftime('%Y%m%d')
-        return '_'.join([self._pofname,'trading_stocks',inputdate])
+            inputdate = dt.date.today()
+        return '_'.join([self._pofname,'trading_stocks',inputdate.strftime('%Y%m%d')])
 
-    def trdlist_to_db(self,textvars,tabledir,tablename=None,codemark='证券代码',replace=False):
+    def trdlist_to_db(self,textvars,tabledir,date=None,tablename=None,codemark='证券代码',replace=False):
         """ 将一张软件端导出的 交易/委托表格 更新至数据库
             textvars 存储数据库格式为TEXT的字段
             codemark 用于标识正表表头
             tablename 表格存储在数据库中的名称
             已经写入数据库的行将不再写入,需要确定数据表格按交易时间排序
         """
+        if date is None:
+            date = dt.date.today()
         if not tablename:
-            tablename = self.get_trdname()
+            tablename = self.get_trdname(inputdate=date)
         with db_assistant(dbdir=self._trd_dbdir) as trddb:
             conn = trddb.connection
             c = conn.cursor()
@@ -68,8 +69,6 @@ class rawtrading_stocks:
                             newcreated = trddb.create_db_table(tablename=tablename,titles=titletrans,replace=replace)
                             if not newcreated:  # 读取已经存储过的行数
                                 processed_lines = c.execute(''.join(['SELECT COUNT(',codemark,') FROM ',tablename])).fetchall()[0][0]
-                            else:
-                                self.table_output_count[tablename] = 0    # 如果表格是新创建的话，需要初始化输出行数记录
                             rawline = fl.readline()
                             foundtitle = True
                             continue
@@ -78,13 +77,12 @@ class rawtrading_stocks:
                         if linecount>processed_lines:   # 只在有比数据库已存储的数据行更多的行提供时才继续写入
                             line = [linecount]+line
                             exeline = ''.join(['INSERT INTO ', tablename, ' VALUES (', ','.join(['?']*titlelen), ')'])
-                            #line[codepos] = rawtrading_stocks.undl_backfix(line[codepos])   # 增加 .SZ ,.SH 等证券后缀
                             c.execute(exeline, line)
                             conn.commit()
                     rawline = fl.readline()
-                print('%d lines updated to trddb with table %s' %(linecount-processed_lines,tablename))
+                print('%d lines updated to trddb with table %s \n' %(linecount-processed_lines,tablename))
 
-    def trdlist_format(self,titles,tscostrate,tablename=None,outdir=None):
+    def trdlist_format(self,titles,tscostrate,startlinenum=0,date=None,tablename=None,outdir=None):
         """ 从数据库提取画图所需格式的 交易 信息，tablename 未提取的表格的名称
             存储为 DataFrame, 输出到 csv
             titles 应为包含 的列表
@@ -92,8 +90,10 @@ class rawtrading_stocks:
             做多 数量为正、金额为正， 做空为负、金额为负， 价格恒正, 交易成本恒为负
         """
         tofilter = ['131810','204001']
+        if date is None:
+            date = dt.date.today()
         if not tablename:
-            tablename = self.get_trdname()
+            tablename = self.get_trdname(inputdate=date)
         def marktrans(x):
             if '买' in x:
                 return 'in'
@@ -115,7 +115,7 @@ class rawtrading_stocks:
                 return -tscostrate
         with db_assistant(dbdir=self._trd_dbdir) as trddb:
             conn = trddb.connection
-            exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename,' WHERE row_id >',str(self.table_output_count[tablename])])
+            exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename,' WHERE row_id >',str(startlinenum)])
             trades = pd.read_sql(exeline,conn)
             trades.columns = ['code','name','num','prc','inout']
             # 剔除非股票持仓和零持仓代码
@@ -124,11 +124,11 @@ class rawtrading_stocks:
             trades = trades[trades['num']>0]
             trades['inout'] = trades['inout'].map(marktrans)
             trades['num'] = trades['num']*trades['inout'].map(reverseval)
-            trades['tscost'] = trades['num']*trades['prc']*trades['inout'].map(tsratecalc)
+            trades['val'] = trades['num']*trades['prc']
+            trades['tscost'] = trades['val']*trades['inout'].map(tsratecalc)
             trades['multi'] = 1
             trades = trades.sort_values(by=['code'],ascending=[1])
-            trades = trades.ix[:,['code','name','num','multi','prc','tscost','inout']]
-            self.table_output_count[tablename] += trades.shape[0]
+            trades = trades.ix[:,['code','name','num','multi','prc','val','tscost','inout']]
             if outdir:
                 trades.to_csv(outdir,header = True,index=False)
             else:
@@ -141,7 +141,6 @@ class rawtrading_futures:
         self._trd_dbdir = trd_dbdir
         self._logdir = logdir
         self._cwdir = cwdir
-        self.maxsn = 0
         self.multi_dict = {'IF':300,'IC':200,'IH':200}
 
     def get_trdname(self,inputdate = None):
@@ -152,7 +151,7 @@ class rawtrading_futures:
 
     def trdlog_to_db(self,tscost,date = None,tablename=None):
         """
-        从交易记录读取信息并写入数据库,同时生成标准格式也写入数据库
+        从交易记录读取信息并写入数据库,同时生成标准格式也写入数据库(注：此处tscost为比率)
         写入数据库，因为数据比较少（100档才100行），因为每次都全部写入
         需要考虑包含灵活换月的情况
         """
@@ -200,23 +199,27 @@ class rawtrading_futures:
                     if '开仓' in trdlog[2]:
                         code = contracts[montype]
                         num = -nvolumn
+                        val = prc*num*multi
                         inout = 'in'
-                        stdtable.append([code,code,num,multi,prc,tscost,inout,sn])
+                        stdtable.append([strat,code,code,num,multi,prc,val,tscost,inout,sn])
                     elif '平仓' in trdlog[2]:
                         code = contracts[montype]
                         num = nvolumn
+                        val = prc*num*multi
                         inout = 'out'
-                        stdtable.append([code,code,num,multi,prc,tscost,inout,sn])
+                        stdtable.append([strat,code,code,num,multi,prc,val,tscost,inout,sn])
                     elif '换仓' in trdlog[2]:
                         real_contracts = rawholding_futures.get_contracts_real(date=date,cttype=cttype)
                         code = real_contracts[montype]
                         num = nvolumn
+                        val = prc*num*multi
                         inout = 'out'
-                        stdtable.append([code,code,num,multi,prc,tscost,inout,sn])
+                        stdtable.append([strat,code,code,num,multi,prc,val,tscost,inout,sn])
                         if montype=='near1':  #远月换月还未定
                             code2 = real_contracts['near2']
                             prc2 = float(trdlog[5])
-                            stdtable.append([code2,code2,-num,multi,prc2,tscost,'in',sn])
+                            val2 = -num*prc2*multi
+                            stdtable.append([strat,code2,code2,-num,multi,prc2,val2,tscost,'in',sn])
                     else:
                         raise Exception('Unrecognized trade_action!')
                     line = fl.readline()
@@ -225,23 +228,29 @@ class rawtrading_futures:
         with db_assistant(dbdir=self._trd_dbdir) as trddb:
             conn = trddb.connection
             fulllog.to_sql(name=trdlogname,con=conn,if_exists='replace')
-            stdtable = pd.DataFrame(stdtable,columns=['code','name','num','multi','prc','tscost','inout','sn'])
+            stdtable = pd.DataFrame(stdtable,columns=['strat','code','name','num','multi','prc','val','tscost','inout','sn'])
+            stdtable['row_id'] = stdtable.index+1
             stdtable.to_sql(name=tablename,con=conn,if_exists='replace')
 
-    def trdlist_format(self,date=None,tablename=None,outdir=None,source='wind'):
-        """ 生成标准交易单 ['code','name','num','multi','prc','tscost','inout'] """
+    def trdlist_format(self,strat=None,startlinenum=0,date=None,tablename=None,outdir=None):
+        """
+            生成标准交易单 ['code','name','num','multi','prc','val','tscost','inout'] ，此处tscost为金额
+        """
         if date is None:
             date = dt.date.today()
         if not tablename:
             tablename = self.get_trdname(inputdate=date)
+        if not strat:
+            stratfilter = ''
+        else:
+            stratfilter = ''.join([' AND strat =\'',strat,'\''])
         with db_assistant(dbdir=self._trd_dbdir) as trddb:
             conn = trddb.connection
-            exeline = ''.join(['SELECT code,name,num,multi,prc,tscost,inout,sn FROM ',tablename,' WHERE sn >',str(self.maxsn)])
+            exeline = ''.join(['SELECT code,name,num,multi,prc,val,tscost,inout FROM ',tablename,' WHERE row_id >',str(startlinenum),stratfilter])
             trades = pd.read_sql(exeline,conn)
-            trades['tscost'] = -np.abs(trades['num']*trades['multi']*trades['prc']*trades['tscost'])
-            self.maxsn = np.max(trades['sn'].values)
-            trades = trades.drop('sn',axis=1)
-            print(self.maxsn)
+            if not trades.empty:
+                trades['code'] = trades['code'].map(rawholding_stocks.addfix)
+                trades['tscost'] = -np.abs(trades['val']*trades['tscost'])
             if outdir:
                 trades.to_csv(outdir,header=True,index=False)
             else:
@@ -258,13 +267,19 @@ if __name__=='__main__':
     t=rawtrading_futures(pofname='test',trd_dbdir='test_rawtrading.db',logdir=dict(cfp.items('blog')),cwdir=dict(cfp.items('cwstate')))
     # t.trdlog_to_db(0,date=dt.datetime(year=2017,month=5,day=22))
     # t.trdlog_to_db(0.1,date=dt.datetime(year=2017,month=5,day=24))
-    # t.trdlog_to_db(0.2,date=dt.datetime(year=2017,month=6,day=15))
+    t.trdlog_to_db(0.2,date=dt.datetime(year=2017,month=6,day=15))
 
-    print(t.trdlist_format(date=dt.datetime(year=2017,month=5,day=24)))
+    tb1 = t.trdlist_format(date=dt.datetime(year=2017,month=5,day=24))
+    print(tb1)
+    a = tb1.groupby('code').sum()
+    print(tb1.loc[:,['code','multi']].groupby('code').mean()['multi']/a['num'])
 
-    cfp2 = cp.ConfigParser()
-    cfp2.read(r'E:\realtime_monitors\realtime_returns\configures\BaiQuan1.ini')
-    t2 = rawtrading_stocks(pofname='test',trd_dbdir='test_rawtrading.db')
-    tbdir = r'C:\Users\Jiapeng\Desktop\test\bq1_trade_20170711.csv'
-    t2.trdlist_to_db(textvars=cfp2.get('stocks','text_vars_trade').split(','),tabledir=tbdir,tablename=None,codemark='证券代码',replace=False)
-    print(t2.trdlist_format(titles=cfp2.get('stocks','vars_trade').split(','),tscostrate=0.0002,tablename=None,outdir=None))
+    # cfp2 = cp.ConfigParser()
+    # cfp2.read(r'E:\realtime_monitors\realtime_returns\configures\BaiQuan1.ini')
+    # t2 = rawtrading_stocks(pofname='test',trd_dbdir='test_rawtrading.db')
+    # tbdir = r'C:\Users\Jiapeng\Desktop\test\bq1_trade_20170711.csv'
+    # t2.trdlist_to_db(textvars=cfp2.get('stocks','text_vars_trade').split(','),tabledir=tbdir,tablename=None,codemark='证券代码',replace=False)
+    # tb2 = t2.trdlist_format(titles=cfp2.get('stocks','vars_trade').split(','),tscostrate=0.0002,tablename=None,outdir=None)
+    #
+    # tb1 = pd.concat([tb1,tb2],axis=0,ignore_index=True)
+    # print(tb1)

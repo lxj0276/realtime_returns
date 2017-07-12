@@ -202,25 +202,43 @@ class Portfolio:
             del UNDL_POOL[pofname]  # 删除对应产品, 可能仍有部分碎股会存在
 
 
-    def __init__(self,pofname,pofval_dir,holdlst_dir,trdlst_dir,handlst_dir,cwstatus_dirs):
+    #def __init__(self,pofname,pofval_dir,holdlst_dir,trdlst_dir,handlst_dir,cwstatus_dirs):
+    def __init__(self,pofname,configdir):
         self._pofname = pofname                               # 产品名称
-        # 读取配置文件
-        #-----------------------  基本路径 --------------------------------------
-        self._pofval_dir = pofval_dir                           # 产品资产存储文件路径
-        self._holdlst_dir = holdlst_dir                         # 组合持仓文件路径，数据结构为 基于标的的字典 ex. {'stocks':_dir1,futures:_dir2}
-        self._trdlst_dir = trdlst_dir                           # 当日交易单子文件路径，类似于holdlst_dir 是基于标的的字典
-        self._handlst_dir = handlst_dir                         # 手动交易单子路径
-        self._cwstatus_dirs = cwstatus_dirs                       # 交易状态文件路径
+        # 读取文件路径配置
+        cfp = cp.ConfigParser()
+        cfp.read(os.path.join(configdir,'local_directories.ini'))
+        # 读取产品配置
+        self._cp = cp.ConfigParser()
+        self._cp.read(os.path.join(configdir,'.'.join([pofname,'ini'])))
+        #-----------------------  交易状态 交易记录 路径 --------------------------------------
+        self._cwstatus_dirs = dict(self._cp.items('cwstate'))                       # 交易状态文件路径
+        self._log_dir = dict(self._cp.items('blog'))    # 交易记录文件
+        #-----------------------  文件基本路径 --------------------------------------
+        self._pofval_dir = os.path.join(cfp.get('dirs','pofval'),pofname,'_'.join([pofname,'pofvalue',TODAY+'.txt']))                # 产品资产存储文件路径
+        self._holdlst_dir = os.path.join(cfp.get('dirs','list_holding'),pofname,'_'.join([pofname,'positions',TODAY+'.csv']))       # 组合持仓文件路径，数据结构为 基于标的的字典 ex. {'stocks':_dir1,futures:_dir2}
+        self._trdlst_dir = os.path.join(cfp.get('dirs','list_trading'),pofname,'_'.join([pofname,'tradings',TODAY+'.csv']))                           # 当日交易单子文件路径，类似于holdlst_dir 是基于标的的字典
+        self._handlst_dir = os.path.join(cfp.get('dirs','list_trading'),pofname,'_'.join([pofname,'handtrds',TODAY+'.csv']))                         # 手动交易单子路径
+        #----------------------- 交易模块变量 -------------------------------------
+        self._rawtrd_stk = os.path.join(cfp.get('dirs','raw_trading'),pofname,'_'.join([pofname,'tradings',TODAY+'.csv']))           # 存储从软件端导出的交易记录的文件夹
+        self._traddb_dir = os.path.join(cfp.get('dirs','products_db'),pofname,'_'.join([pofname,'trading.db']))     # 存储每日交易记录的数据库
+        self._stk_trader = rawtrading_stocks(pofname=self._pofname,trd_dbdir= self._traddb_dir)
+        self._stk_trdlines = 0    # 用于记录从股票标准格式中成功读取并使用的行数
+        if self._log_dir:
+            self._fut_trader = rawtrading_futures(pofname=self._pofname,trd_dbdir=self._traddb_dir,logdir=self._log_dir,cwdir=self._cwstatus_dirs)
+            self._fut_trdlines = {}   # 用于记录从期货标准格式中成功读取并使用的行数，需要分策略
+            for strat in self._log_dir:
+                self._fut_trdlines[strat] = 0
         #-----------------------  变量初始化 --------------------------------------
         self._pofvalue = self.get_pofvalue()                  # 初始化总资产
         self._holdings = {'T1':pd.DataFrame(),'T0':pd.DataFrame()}                   # 初始化组合持仓，T0对应今日买入的资产,T1对应今日之前买入的资产 , T+0/T+1 部分分别存储一个基于品种的、类似lst的dict
         self._addvalue = {'fixed':0 ,'floated':0 }          # 组合收益数值，若在当天出场则为fixed收益，否则为floated
         self._trdlist = {}                                    # 初始化交易单子
         self._handlist = {}                                   # 初始化手动交易单子
-        for undl in trdlst_dir:                              # 清空所有交易单存储所在的文件夹，避免前一日的交易单对今天造成影响
-            clear_dir(trdlst_dir[undl])
-        for undl in self._handlst_dir:                        # 清空手动交易单子路径
-            clear_dir(handlst_dir[undl])
+        # for undl in self._trdlst_dir:                              # 清空所有交易单存储所在的文件夹，避免前一日的交易单对今天造成影响
+        #     clear_dir(self._trdlst_dir[undl])
+        # for undl in self._handlst_dir:                        # 清空手动交易单子路径
+        #     clear_dir(self._handlst_dir[undl])
         #-----------------------  交易状态设置 --------------------------------------
         self._noposition = {}
         self._lastcwstate = self.cwstate_snapshot(predaystat=True)       # 初始化交易状态,使用前一日的cwstate交易状态，改文件路径可由cwstate路径推出
@@ -304,20 +322,19 @@ class Portfolio:
                 print('%s %s: trade happend with InLevels:%d -- OutLevels:%d -- HoldLevels:%d' %(self._pofname,strategy,trdstat['inlvs'],trdstat['outlvs'],trdstat['holdlvs']))
                 trdlst = self.read_trdlist(strategy=strategy)
                 if trdstat['trdstat']=='120': # 从有持仓变为空仓
-                    if trdlst['out']:
-                        self.update_holdings(trdlst['out'],'T1')  # 当天只能卖出T+1的股票
-                        self._holdings = {'T0':{},'T1':{}}
-                        Portfolio.pop_pool(self._pofname,trdlst['out'])
+                    if not trdlst['out'].empty:
+                        self.update_holdings(lst=trdlst['out'],type='T1')  # 当天只能卖出T+1的股票
+                        self._holdings = {'T1':pd.DataFrame(),'T0':pd.DataFrame()}  # 需要上一行代码，因为还要更新 addvalue
+                        Portfolio.pop_pool(pofname=self._pofname,popcodes=trdlst['out']['code'])
                         self._noposition[strategy] = True
                         updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
                         print('%s %s: trading list found : Out' % (self._pofname,strategy))
                     else:
                         print('%s %s: waiting for trading list ...' % (self._pofname,strategy))
                 elif trdstat['trdstat']=='021':  # 从无持仓变为有持仓
-                    if trdlst['in']:
-                        #self._holdings['T0'] = trdlst['in']     # 当天买入的股票算作 T+0
-                        self.update_holdings(trdlst['in'],'T0')
-                        Portfolio.add_pool(self._holdings['T0'],self._pofname)
+                    if not trdlst['in'].empty:
+                        self.update_holdings(lst=trdlst['in'],type='T0')  # 当天买入的股票算作 T+0
+                        Portfolio.add_pool(pofname=self._pofname,addcodes=self._holdings['T0']['code'])
                         self._noposition[strategy] = False
                         updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
                         print('%s %s: trading list found : In' % (self._pofname,strategy))
@@ -325,25 +342,25 @@ class Portfolio:
                         print('%s %s: waiting for trading list ...' % (self._pofname,strategy))
                 elif trdstat['trdstat']=='121':  # 有持仓，且持仓变动
                     if trdstat['inlvs'] == 0:   # 只有卖出
-                        if trdlst['out']:
-                            self.update_holdings(trdlst['out'],'T1')
+                        if not trdlst['out'].empty:
+                            self.update_holdings(lst=trdlst['out'],type='T1')
                             updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
                             print('%s %s: trading list found : Out' % (self._pofname,strategy))
                         else:
                             print('%s %s: waiting for trading list ...' % (self._pofname,strategy))
                     elif trdstat['outlvs'] == 0: # 只有买入
-                        if trdlst['in']:
-                            self.update_holdings(trdlst['in'],'T0')
-                            Portfolio.add_pool(trdlst['in'],self._pofname)
+                        if not trdlst['in'].empty:
+                            self.update_holdings(lst=trdlst['in'],type='T0')
+                            Portfolio.add_pool(pofname=self._pofname,addcodes=trdlst['in']['code'])
                             updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
                             print('%s %s: trading list found : In' % (self._pofname,strategy))
                         else:
                             print('%s %s: waiting for trading list ...' % (self._pofname,strategy))
                     else:  # 买卖都有
-                        if trdlst['in'] and trdlst['out']:
-                            self.update_holdings(trdlst['in'],'T0')
-                            self.update_holdings(trdlst['out'],'T1')
-                            Portfolio.add_pool(trdlst['in'],self._pofname)
+                        if not (trdlst['in'].empty or trdlst['out'].empty):
+                            self.update_holdings(lst=trdlst['in'],type='T0')
+                            self.update_holdings(lst=trdlst['out'],type='T1')
+                            Portfolio.add_pool(pofname=self._pofname,addcodes=trdlst['in']['code'])
                             updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
                             print('%s %s: trading list found : In & Out' % (self._pofname,strategy))
                         else:
@@ -351,42 +368,66 @@ class Portfolio:
             if updtstat:  # 持仓更新成功，单子已经到达录入成功
                 data_subscribe(SUBSCRIBE_SOURCE)
                 self._lastcwstate[strategy] = currcwstat[strategy]  # 更新前一cwstate
+                self._stk_trdlines += trdlst['stk_addlines']
+                if trdlst['fut_addlines']:
+                    self._fut_trdlines[strategy] += trdlst['fut_addlines'][strategy]
                 time.sleep(Portfolio.CHARGE_TIME)
 
-    ######################## ------------------------------------------ ########################################
-    def read_trdlist(self,strategy, handtrd = False):
-        """ 读取标准格式的交易单子 ， 返回 买入 卖出两个方向的单子 """
-        if handtrd:
-            lst_dir = self._handlst_dir
-            scanedlst = self._handlist
+    def generate_trdlist(self,strategy):
+        if os.path.exists(self._rawtrd_stk):
+            self._stk_trader.trdlist_to_db(textvars=self._cp.get('stocks','text_vars_trade').split(','),tabledir=self._rawtrd_stk,replace=False)
+            trdlist = self._stk_trader.trdlist_format(startlinenum=self._stk_trdlines,titles=self._cp.get('stocks','vars_trade').split(','),tscostrate=eval(self._cp.get('stocks','tscost')),outdir=None)
+            stk_addlines = trdlist.shape[0]
         else:
-            lst_dir = self._trdlst_dir
-            scanedlst = self._trdlist
+            return {'trdlist':None}
+        if self._log_dir:
+            fut_addlines = {}
+            if self._log_dir.get(strategy): # 对于混合策略产品 其择时部分需要额外检测
+                self._fut_trader.trdlog_to_db(tscost=eval(self._cp.get('futures','tscost')))
+                futlist = self._fut_trader.trdlist_format(strat=strategy,startlinenum=self._fut_trdlines[strategy])
+                trdlist = pd.concat([trdlist,futlist],ignore_index=True)
+                fut_addlines[strategy] = futlist.shape[0]
+                toreturn = {'trdlist':trdlist,'stk_addlines':stk_addlines,'fut_addlines':fut_addlines}
+            else:
+                toreturn = {'trdlist':trdlist,'stk_addlines':stk_addlines}
+        else:
+            toreturn = {'trdlist':trdlist,'stk_addlines':stk_addlines}
+        return toreturn
+
+    def read_trdlist(self,strategy):
+        """ 读取标准格式的交易单子 ， 返回 买入 卖出两个方向的单子 """
         trdlist = {}
-        trdlist['in'] = {}
-        trdlist['out'] = {}
-        for k in lst_dir:
-            if k not in scanedlst:
-                scanedlst[k] = []
-            files=os.listdir(lst_dir[k])
-            newfiles = set(files)-set( scanedlst[k])
-            if newfiles:
-                templist = pd.DataFrame()
-                for f in newfiles:
-                    templist = templist.append( pd.read_csv(os.path.join(lst_dir[k],f),encoding='gb2312') , ignore_index=True)
-                    scanedlst[k].append(f)    # 把已经读取过的 file 加入到记录
-                tempin = templist[templist['inout'] == 'in']
-                tempout = templist[templist['inout'] == 'out']
-                groupedin=tempin.groupby('code').sum()
-                groupedin['code'] = groupedin.index
-                groupedin['prc'] = groupedin['val'].values/groupedin['num'].values
-                groupedout=tempout.groupby('code').sum()
-                groupedout['code'] = groupedout.index
-                groupedout['prc'] = groupedout['val'].values/groupedout['num'].values
-                trdlist['in'][k] = groupedin
-                trdlist['out'][k] = groupedout
+        trdlist['in'] = pd.DataFrame()
+        trdlist['out'] = pd.DataFrame()
+        # 读取标准化交易单（所有品种合并）
+        result = self.generate_trdlist(strategy)
+        totlist = result['trdlist']
+        if totlist is None:
+            return trdlist
+        totlist['multi_num'] = totlist['multi']*totlist['num']
+        # 生成 in 单子
+        inlist = totlist[totlist['inout'] == 'in']
+        if not inlist.empty:
+            groupedin = inlist.groupby('code').sum()
+            groupedin = groupedin.reset_index()
+            groupedin['prc'] = groupedin['val']/groupedin['num']
+            groupedin['multi'] = groupedin['multi_num']/groupedin['num']
+            groupedin = groupedin.drop('multi_num',axis=1)
+            trdlist['in'] = groupedin
+        # 生成 out 单子
+        outlist = totlist[totlist['inout'] == 'out']
+        if not outlist.empty:
+            groupedout=outlist.groupby('code').sum()
+            groupedout = groupedout.reset_index()
+            groupedout['prc'] = groupedout['val']/groupedout['num']
+            groupedout['multi'] = groupedout['multi_num']/groupedout['num']
+            groupedout = groupedout.drop('multi_num',axis=1)
+            trdlist['out'] = groupedout
+        trdlist['stk_addlines'] = result.get('stk_addlines')
+        trdlist['fut_addlines'] = result.get('fut_addlines')
         return trdlist
 
+    ######################## ------------------------------------------ ########################################
     def check_handtrd(self):
         """ 扫描手动交易单子 """
         # 暂定为不断扫描handlst_dir
@@ -415,7 +456,7 @@ class Portfolio:
         """
         if os.path.exists(self._holdlst_dir):
             holdlist = pd.read_csv(self._holdlst_dir,encoding='gb2312') #,names=['code','name','num','multi','prc'],header=1)
-            #holdlist.index = holdlist['code'].tolist()
+            holdlist.index = holdlist['code'].tolist() # 需要将index设为股票代码 update_holdlist 需要
             return holdlist
         else:
             # 在当天没有持仓的情况下应避免调用此函数
@@ -428,13 +469,13 @@ class Portfolio:
             return
         ts = 0  # 交易成本
         if type=='T1':     ####### 只在出场的时候更新T+1
-            codes = lst['code']
+            codes = lst['code'].values
             num = lst['num']
             multi = lst['multi']
             self._holdings['T1'].loc[codes,['num']] += num
             addsgl = (self._holdings['T1'].loc[codes,'prc']-lst['prc'])*num*multi  # 单个标的的收益，考虑到了lst的num包含了交易方向信息
             self._addvalue['fixed'] += np.sum( addsgl.values )
-        elif type=='TO':    ######## 只在当日入场时更新 T+0
+        elif type=='T0':    ######## 只在当日入场时更新 T+0
             if self._holdings['T0'].empty:
                 self._holdings['T0'] = lst.loc[:,['code','name','num','multi','prc']]
             else:
@@ -495,6 +536,7 @@ class Portfolio:
             self.stopplot()
         if UNDL_POOL_INFO:
             self.update_addvalue()
+
 
 
 if __name__=='__main__':
