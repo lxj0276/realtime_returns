@@ -39,6 +39,7 @@ class Portfolio:
         yaxis = {}
         axes = {}
         ptscount = {}
+        stopmark = {} # 用于标记画图结束为空仓，最后一个点仍需计算以确保显示的收益率正确
         loopcount = 0
         while(  START_TIME<= dt.datetime.now()<= END_TIME):
             if MID1_TIME < dt.datetime.now() < MID2_TIME:  # 午休时间
@@ -62,6 +63,7 @@ class Portfolio:
                     xaxis[obj][0] = dt.datetime.now()
                     yaxis[obj][0] = (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100
                     ptscount[obj] = 0
+                    stopmark[obj] = 1
                     ax = fig.add_subplot(str(shape[0])+str(shape[1])+str(count))
                     ax.xaxis.set_major_formatter(mdate.DateFormatter('%H:%M'))
                     ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.4f%%'))
@@ -72,7 +74,11 @@ class Portfolio:
                     if ploting:   # 正常画图的情况
                         yaxis[obj][ptscount[obj]] = (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100
                     else:        # 画图暂停的情况，y轴延续上一个数值
-                        yaxis[obj][ptscount[obj]] = yaxis[obj][ptscount[obj]-1]
+                        if stopmark[obj]>0:
+                            yaxis[obj][ptscount[obj]] = (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100
+                            stopmark[obj] -= 1
+                        else:
+                            yaxis[obj][ptscount[obj]] = yaxis[obj][ptscount[obj]-1]
                     xaxis[obj][ptscount[obj]] = dt.datetime.now()
                 # 设置图例，因为每次都是画一张新图
                 if ptscount[obj]>=1:  # 至少两个点以上才能画图
@@ -93,88 +99,6 @@ class Portfolio:
         if not os.path.exists(figpath):
             plt.savefig(figpath)
         print('plots saved')
-
-
-
-
-
-    ####################################################################################################################
-    ####################################################################################################################
-    @classmethod
-    def update_undlpool_v2(cls):
-        """ 更新实例状态并画图 """
-        # 订阅数据源
-        data_subscribe(SUBSCRIBE_SOURCE)
-        # 图像基本配置
-        shape=calc_shape(len(Portfolio.REGI_OBJ))
-        mpl.rcParams['font.sans-serif'] = ['SimHei'] #用来正常显示中文标签
-        fig=plt.figure(figsize=(20,20))
-        fig.canvas.set_window_title('  '.join([TODAY,'VERSION : '+VERSION]))
-
-        xaxis = {}
-        yaxis = {}
-        axes = {}
-        lns = {}
-        count = 1
-        for id in sorted( Portfolio.PLOT_OBJ ):    #  Portfolio.PLOT_OBJ 是以增加过的画图 obj 的 regid
-            plobj = Portfolio.PLOT_OBJ[id]
-            obj = plobj[0]
-            if obj not in xaxis:   # 初次画图,只有一个点
-                xaxis[obj] = [dt.datetime.now()]
-                yaxis[obj] = [(obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100]
-                ax = fig.add_subplot(str(shape[0])+str(shape[1])+str(count))
-                ax.xaxis.set_major_formatter(mdate.DateFormatter('%H:%M'))
-                ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.4f%%'))
-                ax.set_title(obj._pofname)
-                ln, = ax.plot(xaxis[obj], yaxis[obj], linewidth=1, color='r')
-                axes[obj] = ax
-                lns[obj] = ln
-                count +=1
-
-        def init():
-            for id in sorted( Portfolio.PLOT_OBJ ):
-                plobj = Portfolio.PLOT_OBJ[id]
-                obj = plobj[0]
-                axes[obj].set_xlim(xaxis[obj][0], xaxis[obj][-1])
-                axes[obj].legend(('return : %.4f%%' % yaxis[obj][-1],))
-
-        def data_gen():
-            while(  START_TIME<= dt.datetime.now()<= END_TIME):
-                if MID1_TIME < dt.datetime.now() < MID2_TIME:  # 午休时间
-                    continue
-                else:
-                    time.sleep(FLUSH_CWSTAT)
-                    for id in sorted( Portfolio.PLOT_OBJ ):
-                        plobj = Portfolio.PLOT_OBJ[id]
-                        obj = plobj[0]
-                        ploting = plobj[1]
-                        if ploting:   # 正常画图的情况
-                            yaxis[obj].append( (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100 )
-                        else:        # 画图暂停的情况，y轴延续上一个数值
-                            yaxis[obj].append( yaxis[obj][-1] )
-                        xaxis[obj].append(dt.datetime.now())
-                yield [xaxis,yaxis]
-
-        def update(data):
-            for id in sorted( Portfolio.PLOT_OBJ ):
-                plobj = Portfolio.PLOT_OBJ[id]
-                obj = plobj[0]
-                lns[obj].set_data(data[0][obj],data[1][obj])
-
-        man.FuncAnimation(fig=fig,func=update,frames=data_gen,init_func=init)
-        plt.show()
-
-        print('plot finished')
-        figpath = os.path.join(Portfolio.FIGDIR,TODAY+'.png')
-        if not os.path.exists(figpath):
-            plt.savefig(figpath)
-        print('plots saved')
-
-    ###################################################################################################################
-    ####################################################################################################################
-
-
-
 
     @classmethod
     def add_pool(cls,pofname,addcodes):
@@ -324,7 +248,7 @@ class Portfolio:
                 if trdstat['trdstat']=='120': # 从有持仓变为空仓
                     if not trdlst['out'].empty:
                         self.update_holdings(lst=trdlst['out'],type='T1')  # 当天只能卖出T+1的股票
-                        self._holdings = {'T1':pd.DataFrame(),'T0':pd.DataFrame()}  # 需要上一行代码，因为还要更新 addvalue
+                        #self._holdings = {'T1':pd.DataFrame(),'T0':pd.DataFrame()}  # 需要上一行代码，因为还要更新 addvalue
                         Portfolio.pop_pool(pofname=self._pofname,popcodes=trdlst['out']['code'])
                         self._noposition[strategy] = True
                         updtstat = True   # 只有在trdlist完成提取后才会更新 trdstat, 防止trdlist 更新较慢的情况
@@ -410,6 +334,7 @@ class Portfolio:
         if not inlist.empty:
             groupedin = inlist.groupby('code').sum()
             groupedin = groupedin.reset_index()
+            groupedin.index = groupedin['code']
             groupedin['prc'] = groupedin['val']/groupedin['num']
             groupedin['multi'] = groupedin['multi_num']/groupedin['num']
             groupedin = groupedin.drop('multi_num',axis=1)
@@ -419,6 +344,7 @@ class Portfolio:
         if not outlist.empty:
             groupedout=outlist.groupby('code').sum()
             groupedout = groupedout.reset_index()
+            groupedout.index = groupedout['code']
             groupedout['prc'] = groupedout['val']/groupedout['num']
             groupedout['multi'] = groupedout['multi_num']/groupedout['num']
             groupedout = groupedout.drop('multi_num',axis=1)
@@ -472,9 +398,11 @@ class Portfolio:
             codes = lst['code'].values
             num = lst['num']
             multi = lst['multi']
-            self._holdings['T1'].loc[codes,['num']] += num
-            addsgl = (self._holdings['T1'].loc[codes,'prc']-lst['prc'])*num*multi  # 单个标的的收益，考虑到了lst的num包含了交易方向信息
-            self._addvalue['fixed'] += np.sum( addsgl.values )
+            outprc = lst['prc']
+            self._holdings['T1'].loc[codes,'num'] += num
+            addsgl = (self._holdings['T1'].loc[codes,'prc']-outprc)*num*multi  # 单个标的的收益，考虑到了lst的num包含了交易方向信息
+            earned = np.sum( addsgl.values )
+            self._addvalue['fixed'] += earned
         elif type=='T0':    ######## 只在当日入场时更新 T+0
             if self._holdings['T0'].empty:
                 self._holdings['T0'] = lst.loc[:,['code','name','num','multi','prc']]
@@ -497,6 +425,7 @@ class Portfolio:
         # 只计算尚未卖出的收益，即floated 收益
         # 当日卖出的部分属于 fixed 收益，在 update_holdlist 中计算
         if self._holdings['T0'].empty and self._holdings['T1'].empty:  # 调用时没有持仓
+            self._addvalue['floated'] = 0  # 已经无持仓，浮动收益应该都已经转化为固定收益
             return
         newinfo = pd.DataFrame( UNDL_POOL_INFO, index = POOL_COLUMNS).T
         addval = 0
