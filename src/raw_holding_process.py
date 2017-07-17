@@ -145,10 +145,13 @@ class rawholding_stocks:
             holdings['code'] = holdings['code'].map(rawholding_stocks.addfix)
             holdings = holdings[~ holdings['code'].isin(HOLD_FILTER)]
             holdings = holdings[holdings['num']>0]
-            holdings['multi'] = np.ones([len(holdings),1])
-            #holdings['val'] = holdings['num']*holdings['prc']
-            holdings = holdings.sort_values(by=['code'],ascending=[1])
-            holdings = holdings.loc[:,['code','name','num','multi','prc']]
+            if holdings.empty:
+                holdings = pd.DataFrame()
+            else:
+                holdings['multi'] = np.ones([len(holdings),1])
+                #holdings['val'] = holdings['num']*holdings['prc']
+                holdings = holdings.sort_values(by=['code'],ascending=[1])
+                holdings = holdings.loc[:,['code','name','num','multi','prc']]
             if outdir:
                 holdings.to_csv(outdir,header = True,index=False)
             else:

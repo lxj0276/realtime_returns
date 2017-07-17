@@ -18,7 +18,7 @@ class NewThread(threading.Thread):
         self.__gohold = threading.Event()
         self.__gohold.set()
 
-    def run(self):
+    def run(self):  # run结束后进程结束
         while self.__onoff.is_set():
             self._target(*self._args,**self._kwargs)
             time.sleep(self.frequency)

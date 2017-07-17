@@ -5,8 +5,6 @@ from src.global_vars import *
 from src.product_class import *
 from src.portfolio_class import *
 
-import threading
-
 ######### 提取原始文件
 nametrans = {
     'bq1':'BaiQuan1',
@@ -40,8 +38,6 @@ cfp = cp.ConfigParser()
 cfp.read(os.path.join(configdir,'local_directories.ini'))
 
 for p in nametrans:
-    if p!='ls1':
-        continue
     pofname = nametrans[p]
     ############ 检测是否有新产品，如果有需要建立新文件夹 ##########
     for dirname in cfp.options('dirs'):

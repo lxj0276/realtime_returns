@@ -64,12 +64,12 @@ class Portfolio:
                     yaxis[obj][0] = (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100
                     ptscount[obj] = 0
                     stopmark[obj] = 1
-                    ax = fig.add_subplot(str(shape[0])+str(shape[1])+str(count))
+                    ax = fig.add_subplot(str(shape[0])+str(shape[1])+str(obj._plotid))#str(count))
                     ax.xaxis.set_major_formatter(mdate.DateFormatter('%H:%M'))
                     ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.4f%%'))
                     ax.set_title(obj._pofname)
                     axes[obj] = ax
-                    count +=1
+                    loopcount = 0  # 每当有新图加入时，需要重置loopcount 以确保画图能够正常进行
                 else:  # 此前画过图，有两个以上点 计算画图坐标点
                     if ploting:   # 正常画图的情况
                         yaxis[obj][ptscount[obj]] = (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100
@@ -86,6 +86,7 @@ class Portfolio:
                     axes[obj].legend(('return : %.4f%%' % yaxis[obj][ptscount[obj]],))
                     axes[obj].plot(xaxis[obj][0:ptscount[obj]], yaxis[obj][0:ptscount[obj]], linewidth=1, color='r')
                 ptscount[obj] += 1
+                count +=1
             print('t2: %f' % (time.time()-t2))
             ############## PART3 ： 更新图表，所有子图一起更新 ##############################
             t3 = time.time()
@@ -335,7 +336,7 @@ class Portfolio:
             groupedin = inlist.groupby('code').sum()
             groupedin = groupedin.reset_index()
             groupedin.index = groupedin['code']
-            groupedin['prc'] = groupedin['val']/groupedin['num']
+            groupedin['prc'] = groupedin['val']/groupedin['multi_num']
             groupedin['multi'] = groupedin['multi_num']/groupedin['num']
             groupedin = groupedin.drop('multi_num',axis=1)
             trdlist['in'] = groupedin
@@ -345,7 +346,7 @@ class Portfolio:
             groupedout=outlist.groupby('code').sum()
             groupedout = groupedout.reset_index()
             groupedout.index = groupedout['code']
-            groupedout['prc'] = groupedout['val']/groupedout['num']
+            groupedout['prc'] = groupedout['val']/groupedout['multi_num']
             groupedout['multi'] = groupedout['multi_num']/groupedout['num']
             groupedout = groupedout.drop('multi_num',axis=1)
             trdlist['out'] = groupedout
@@ -414,7 +415,7 @@ class Portfolio:
                 grouped = pd.concat([part1,part2],axis=1) # type:pd.DataFrame
                 grouped['code'] = grouped.index
                 grouped['prc'] = grouped['val'].values / grouped['num'].values
-                grouped.drop('val')
+                grouped.drop('val',axis=1)
                 self._holdings['T0'] = grouped
         else:
             raise Exception('Need to specify the type of holdlist to be updated!')
