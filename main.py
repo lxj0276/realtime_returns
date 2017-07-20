@@ -1,7 +1,8 @@
 
 import configparser as cp
 
-from src.global_vars import *
+# from src.global_vars import *
+import global_vars as gv
 from src.product_class import *
 from src.portfolio_class import *
 
@@ -14,20 +15,20 @@ nametrans = {
     'hj1':'BaiQuanHuiJin1',
     'ls1':'BaiQuanLiShi1',
     'gd2':'GuoDaoLiShi2',
-    'xy7':'XingYing7',
+    #'xy7':'XingYing7',
     'ms1':'BaiQuanMS1'
 }
 
 fromdir = r'C:\Users\Jiapeng\Desktop\tempholdings'
 todir = r'E:\realtime_monitors\realtime_returns\raw_holdings'
 for p in nametrans:
-    fromfile = os.path.join(fromdir,''.join([p,'_',YESTERDAY,'.csv']))
-    tofile = os.path.join(todir,nametrans[p],''.join([nametrans[p],'_positions_stocks_',TODAY,'.csv']))
+    fromfile = os.path.join(fromdir,''.join([p,'_',gv.YESTERDAY,'.csv']))
+    tofile = os.path.join(todir,nametrans[p],''.join([nametrans[p],'_positions_stocks_',gv.TODAY,'.csv']))
     if not os.path.exists(tofile):
         os.system('copy %s %s ' %(fromfile,tofile))
 
 print('\n copying ls1 value...')
-ls1val_from = os.path.join(r'E:\calc_dividend\holding_gen\ls1_value',''.join(['ls1_value_',YESTERDAY,'.txt']))
+ls1val_from = os.path.join(r'E:\calc_dividend\holding_gen\ls1_value',''.join(['ls1_value_',gv.YESTERDAY,'.txt']))
 ls1val_to = r'E:\realtime_monitors\realtime_returns\pofvalues\_pofvalues_others\BaiQuanLiShi1.txt'
 os.system('copy /Y %s %s' %(ls1val_from,ls1val_to))
 print('\n')
@@ -57,5 +58,5 @@ try:
 except:
     raise
 finally: ######### 关闭子进程 ############
-    for source in PRE_THREADS:
-        PRE_THREADS[source].stop()
+    for source in gv.PRE_THREADS:
+        gv.PRE_THREADS[source].stop()

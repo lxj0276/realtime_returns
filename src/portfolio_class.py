@@ -11,8 +11,8 @@ import matplotlib.ticker as mtick
 import numpy as np
 import pandas as pd
 
+import src.global_vars as gv
 from src.data_subscribe import *
-from src.global_vars import *
 from src.help_functions import *
 from raw_trading_process import *
 
@@ -29,20 +29,20 @@ class Portfolio:
     def update_undlpool(cls):
         """ 更新实例状态并画图 """
         # 订阅数据源
-        data_subscribe(SUBSCRIBE_SOURCE)
+        data_subscribe(gv.SUBSCRIBE_SOURCE)
         # 图像基本配置
         shape=calc_shape(len(Portfolio.REGI_OBJ))
         mpl.rcParams['font.sans-serif'] = ['SimHei'] #用来正常显示中文标签
         fig=plt.figure(figsize=(20,20))
-        fig.canvas.set_window_title('  '.join([TODAY,'VERSION : '+VERSION]))
+        fig.canvas.set_window_title('  '.join([gv.TODAY,'VERSION : '+gv.VERSION]))
         xaxis = {}
         yaxis = {}
         axes = {}
         ptscount = {}
         stopmark = {} # 用于标记画图结束为空仓，最后一个点仍需计算以确保显示的收益率正确
         loopcount = 0
-        while(  START_TIME<= dt.datetime.now()<= END_TIME):
-            if MID1_TIME < dt.datetime.now() < MID2_TIME:  # 午休时间
+        while(  gv.START_TIME<= dt.datetime.now()<= gv.END_TIME):
+            if gv.MID1_TIME < dt.datetime.now() < gv.MID2_TIME:  # 午休时间
                 continue
             ################# PART1 : 更新所有实例 ,暂停画图的也要更新，因为x轴为时间正常更新 #####################
             t1 = time.time()
@@ -58,8 +58,8 @@ class Portfolio:
                 ploting = plobj[1]
                 ######### 计算坐标点,如果是初次画图还需设置图像对象 ##############
                 if obj not in xaxis:   # 初次画图,只有一个点
-                    xaxis[obj] = [0]*PLOT_POINTS
-                    yaxis[obj] = [0]*PLOT_POINTS
+                    xaxis[obj] = [0]*gv.PLOT_POINTS
+                    yaxis[obj] = [0]*gv.PLOT_POINTS
                     xaxis[obj][0] = dt.datetime.now()
                     yaxis[obj][0] = (obj._addvalue['floated']+obj._addvalue['fixed'])/obj._pofvalue * 100
                     ptscount[obj] = 0
@@ -91,12 +91,12 @@ class Portfolio:
             ############## PART3 ： 更新图表，所有子图一起更新 ##############################
             t3 = time.time()
             if loopcount>=1:
-                plt.pause(FLUSH_CWSTAT)
+                plt.pause(gv.FLUSH_CWSTAT)
             loopcount+=1
             print('t3: %f' % (time.time()-t3))
         #################### 画图完成，保存图像 ########################
         print('plot finished')
-        figpath = os.path.join(Portfolio.FIGDIR,TODAY+'.png')
+        figpath = os.path.join(Portfolio.FIGDIR,gv.TODAY+'.png')
         if not os.path.exists(figpath):
             plt.savefig(figpath)
         print('plots saved')
@@ -105,26 +105,26 @@ class Portfolio:
     def add_pool(cls,pofname,addcodes):
         """ 把codes对应标的加入资产池 """
         # UNDL_POOL 必须包含 'total' 关键字
-        if pofname not in UNDL_POOL:  # 如果pool中没有该产品则新创建
+        if pofname not in gv.UNDL_POOL:  # 如果pool中没有该产品则新创建
             toadd = set(addcodes)
-            UNDL_POOL['total'] |= toadd
-            UNDL_POOL[pofname] = toadd
+            gv.UNDL_POOL['total'] |= toadd
+            gv.UNDL_POOL[pofname] = toadd
         else:
             toadd = set(addcodes)
-            UNDL_POOL[pofname] |= toadd
-            UNDL_POOL['total'] |= toadd
+            gv.UNDL_POOL[pofname] |= toadd
+            gv.UNDL_POOL['total'] |= toadd
 
     @classmethod
     def pop_pool(cls,pofname,popcodes):
         """ 从 pool 中删除对应组合，提取该组合特有的股票删除，不能删除 total 中与其他组合共有的股票 """
         # 根据特定 Portfolio pop
-        if pofname in UNDL_POOL:
+        if pofname in gv.UNDL_POOL:
             holdonly = set(popcodes)
-            for k in UNDL_POOL:
+            for k in gv.UNDL_POOL:
                 if k not in ( 'total', pofname):
-                    holdonly -= UNDL_POOL[k]
-            UNDL_POOL['total'] -= holdonly   # 删除 total 中对应部分
-            del UNDL_POOL[pofname]  # 删除对应产品, 可能仍有部分碎股会存在
+                    holdonly -= gv.UNDL_POOL[k]
+            gv.UNDL_POOL['total'] -= holdonly   # 删除 total 中对应部分
+            del gv.UNDL_POOL[pofname]  # 删除对应产品, 可能仍有部分碎股会存在
 
 
     #def __init__(self,pofname,pofval_dir,holdlst_dir,trdlst_dir,handlst_dir,cwstatus_dirs):
@@ -197,7 +197,7 @@ class Portfolio:
         for strategy in self._cwstatus_dirs:
             cw = self._cwstatus_dirs[strategy]
             if predaystat:   # 提取前一日交易状态路径
-                cwdir = os.path.join(cw,''.join(['cwstate_history\cwstate_',YESTERDAY,'.txt']))
+                cwdir = os.path.join(cw,''.join(['cwstate_history\cwstate_',gv.YESTERDAY,'.txt']))
             else:
                 cwdir = os.path.join(cw,'cwstate.txt')
             with open(cwdir,'r') as cwinfo:
@@ -291,11 +291,13 @@ class Portfolio:
                         else:
                             print('%s %s: waiting for trading list ...' % (self._pofname,strategy))
             if updtstat:  # 持仓更新成功，单子已经到达录入成功
-                data_subscribe(SUBSCRIBE_SOURCE)
+                data_subscribe(gv.SUBSCRIBE_SOURCE)
                 self._lastcwstate[strategy] = currcwstat[strategy]  # 更新前一cwstate
                 self._stk_trdlines += trdlst['stk_addlines']
+                print('%s %s stocks line taken : %d' %(self._pofname,strategy,trdlst['stk_addlines']))
                 if trdlst['fut_addlines']:
                     self._fut_trdlines[strategy] += trdlst['fut_addlines'][strategy]
+                    print('%s %s futures line taken : %d' %(self._pofname,strategy,trdlst['fut_addlines'][strategy]))
                 time.sleep(Portfolio.CHARGE_TIME)
 
     def generate_trdlist(self,strategy):
@@ -371,7 +373,7 @@ class Portfolio:
             hastrd = True
             print('%s ：trading by hand found : Out' % self._pofname)
         if hastrd:  # 持仓更新成功，单子已经到达录入成功
-            data_subscribe(SUBSCRIBE_SOURCE)
+            data_subscribe(gv.SUBSCRIBE_SOURCE)
             time.sleep(Portfolio.CHARGE_TIME)
     ######################## ------------------------------------------ ########################################
 
@@ -428,7 +430,7 @@ class Portfolio:
         if self._holdings['T0'].empty and self._holdings['T1'].empty:  # 调用时没有持仓
             self._addvalue['floated'] = 0  # 已经无持仓，浮动收益应该都已经转化为固定收益
             return
-        newinfo = pd.DataFrame( UNDL_POOL_INFO, index = POOL_COLUMNS).T
+        newinfo = pd.DataFrame( gv.UNDL_POOL_INFO, index = gv.POOL_COLUMNS).T
         addval = 0
         for tp in self._holdings:
             holding = self._holdings[tp]
@@ -464,7 +466,7 @@ class Portfolio:
             self.startplot()
         elif empty_position:
             self.stopplot()
-        if UNDL_POOL_INFO:
+        if gv.UNDL_POOL_INFO:
             self.update_addvalue()
 
 

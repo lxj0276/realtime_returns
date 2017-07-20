@@ -7,16 +7,16 @@ import sqlite3
 from remotewind import w
 from gmsdk import md
 
+import global_vars as gv
 from date_math.date_math import *
 from gm_daily.gm_daily import *
-from global_vars import *
 from database_assistant.database_assistant import *
 
 
 class rawholding_stocks:
 
     @staticmethod
-    def addfix(undl,source=SUBSCRIBE_SOURCE,endmark=''):
+    def addfix(undl,source=gv.SUBSCRIBE_SOURCE,endmark=''):
         if undl[0].isnumeric() and len(undl[0])<6:
             undl = ''.join(['0'*(6-len(undl)),undl])
         if 'goldmin' in source:
@@ -143,7 +143,7 @@ class rawholding_stocks:
             holdings.columns = ['code','name','num','prc']  # 因此给的title只能有4个
             # 剔除非股票持仓和零持仓代码 逆回购 理财产品等
             holdings['code'] = holdings['code'].map(rawholding_stocks.addfix)
-            holdings = holdings[~ holdings['code'].isin(HOLD_FILTER)]
+            holdings = holdings[~ holdings['code'].isin(gv.HOLD_FILTER)]
             holdings = holdings[holdings['num']>0]
             if holdings.empty:
                 holdings = pd.DataFrame()

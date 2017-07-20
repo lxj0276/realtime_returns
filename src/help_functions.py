@@ -33,3 +33,6 @@ def calc_shape(num):
         else:
             shape = (lower,lower)
     return shape
+
+def plotpts_interpolation(maxpos,ptsnum):
+    pass
