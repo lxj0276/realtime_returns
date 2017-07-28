@@ -1,7 +1,7 @@
 
 import os
 import configparser as cp
-
+import src.global_vars as gv
 from src.portfolio_class import *
 from src.raw_holding_process import *
 
@@ -19,15 +19,15 @@ class Products(Portfolio):
         self._rawhold_dir = os.path.join(cfp.get('dirs','raw_holding'),pofname)           # 存储从软件端导出的持仓记录的文件夹
         self._holddb_dir = os.path.join(cfp.get('dirs','products_db'),pofname,'_'.join([pofname,'holding.db']))     # 存储每日持仓记录的数据库
         ########################### 提取父类初始化所需的各种路径 #########################
-        pofval_dir = os.path.join(cfp.get('dirs','pofval'),pofname,'_'.join([pofname,'pofvalue',TODAY+'.txt']))
-        holdlst_dir = os.path.join(cfp.get('dirs','list_holding'),pofname,'_'.join([pofname,'positions',TODAY+'.csv']))
+        pofval_dir = os.path.join(cfp.get('dirs','pofval'),pofname,'_'.join([pofname,'pofvalue',gv.TODAY+'.txt']))
+        holdlst_dir = os.path.join(cfp.get('dirs','list_holding'),pofname,'_'.join([pofname,'positions',gv.TODAY+'.csv']))
         cwstatus_dirs = dict(product_cf.items('cwstate'))
         # 将原始数据(通达信导出，ctp记录等)导入数据库，并声称portfolio_class 使用的标准持仓格式 (期货、股票以及其他标的（如果有）在一张表格中)
         pofvalue = []
         holdings = pd.DataFrame()
         ######################### 读取 股票 持仓信息   #########################
         print('%s : updating stocks holding...' % pofname)
-        rawfile = os.path.join(self._rawhold_dir,''.join([pofname,'_positions_stocks_',TODAY,'.csv']))
+        rawfile = os.path.join(self._rawhold_dir,''.join([pofname,'_positions_stocks_',gv.TODAY,'.csv']))
         obj = rawholding_stocks(hold_dbdir=self._holddb_dir,pofname=pofname)   # 创建客户端转数据库对象
         obj.holdlist_to_db(tabledir=rawfile,textvars=product_cf.get('stocks','text_vars_hold').split(','),replace=False)  # 写入数据库
         holding = obj.holdlist_format(titles=product_cf.get('stocks','vars_hold').split(','))   # 从数据库提取标准格式
@@ -38,9 +38,9 @@ class Products(Portfolio):
         if product_cf.options('blog'):
             print('%s : updating futures holding...' % pofname)
             obj = rawholding_futures(hold_dbdir=self._holddb_dir,pofname=pofname,logdir=dict(product_cf.items('blog')),cwdir=cwstatus_dirs)
-            holding = obj.holdlist_format(prctype='close',date=Yesterday,source='gm')
+            holding = obj.holdlist_format(prctype='close',date=gv.Yesterday,source='gm')
             holdings = holdings.append(holding,ignore_index=True)
-            holdval = obj.get_totval(date=Yesterday,prctype = 'close')
+            holdval = obj.get_totval(date=gv.Yesterday,prctype = 'close')
             pofvalue.append(holdval)
         # ******************** 写入 holdlist ***************************
         holdings.to_csv(holdlst_dir,header=True,index=False)

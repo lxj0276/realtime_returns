@@ -140,12 +140,12 @@ class Portfolio:
         self._cwstatus_dirs = dict(self._cp.items('cwstate'))                       # 交易状态文件路径
         self._log_dir = dict(self._cp.items('blog'))    # 交易记录文件
         #-----------------------  文件基本路径 --------------------------------------
-        self._pofval_dir = os.path.join(cfp.get('dirs','pofval'),pofname,'_'.join([pofname,'pofvalue',TODAY+'.txt']))                # 产品资产存储文件路径
-        self._holdlst_dir = os.path.join(cfp.get('dirs','list_holding'),pofname,'_'.join([pofname,'positions',TODAY+'.csv']))       # 组合持仓文件路径，数据结构为 基于标的的字典 ex. {'stocks':_dir1,futures:_dir2}
-        self._trdlst_dir = os.path.join(cfp.get('dirs','list_trading'),pofname,'_'.join([pofname,'tradings',TODAY+'.csv']))                           # 当日交易单子文件路径，类似于holdlst_dir 是基于标的的字典
-        self._handlst_dir = os.path.join(cfp.get('dirs','list_trading'),pofname,'_'.join([pofname,'handtrds',TODAY+'.csv']))                         # 手动交易单子路径
+        self._pofval_dir = os.path.join(cfp.get('dirs','pofval'),pofname,'_'.join([pofname,'pofvalue',gv.TODAY+'.txt']))                # 产品资产存储文件路径
+        self._holdlst_dir = os.path.join(cfp.get('dirs','list_holding'),pofname,'_'.join([pofname,'positions',gv.TODAY+'.csv']))       # 组合持仓文件路径，数据结构为 基于标的的字典 ex. {'stocks':_dir1,futures:_dir2}
+        self._trdlst_dir = os.path.join(cfp.get('dirs','list_trading'),pofname,'_'.join([pofname,'tradings',gv.TODAY+'.csv']))                           # 当日交易单子文件路径，类似于holdlst_dir 是基于标的的字典
+        self._handlst_dir = os.path.join(cfp.get('dirs','list_trading'),pofname,'_'.join([pofname,'handtrds',gv.TODAY+'.csv']))                         # 手动交易单子路径
         #----------------------- 交易模块变量 -------------------------------------
-        self._rawtrd_stk = os.path.join(cfp.get('dirs','raw_trading'),pofname,'_'.join([pofname,'tradings',TODAY+'.csv']))           # 存储从软件端导出的交易记录的文件夹
+        self._rawtrd_stk = os.path.join(cfp.get('dirs','raw_trading'),pofname,'_'.join([pofname,'tradings',gv.TODAY+'.csv']))           # 存储从软件端导出的交易记录的文件夹
         self._traddb_dir = os.path.join(cfp.get('dirs','products_db'),pofname,'_'.join([pofname,'trading.db']))     # 存储每日交易记录的数据库
         self._stk_trader = rawtrading_stocks(pofname=self._pofname,trd_dbdir= self._traddb_dir)
         self._stk_trdlines = 0    # 用于记录从股票标准格式中成功读取并使用的行数
