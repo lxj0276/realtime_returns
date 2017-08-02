@@ -27,5 +27,10 @@ class date_math:
             month_final = month_added
         year_final = int(thisyear + yeardiff)
         assert year_final>=0
-
-        return dt.datetime(year=year_final,month=month_final,day=self._date.day)
+        if month_final==2 and self._date.day>28:
+            date_final = 28
+        elif month_final in (4,6,9,11) and self._date.day==31:
+            date_final = 30
+        else:
+            date_final = self._date.day
+        return dt.datetime(year=year_final,month=month_final,day=date_final)

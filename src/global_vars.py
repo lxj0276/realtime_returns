@@ -9,6 +9,7 @@ POOL_COLUMNS = ['rt_last']                 #rt_time,rt_pct_chg'
 SUBSCRIBE_SOURCE = 'goldmine_snapshot'                         #  'goldmine_snapshot'  'simulation'   'goldmine'  'wind'
 PRE_THREADS = {}
 FLUSH_CWSTAT = 0.5   # 画图更新时间间隔 秒
+MAXPTSNUM = 1000
 
 w.start()
 Today = dt.datetime.today()
@@ -19,7 +20,7 @@ YESTERDAY = Yesterday.strftime('%Y%m%d')
 START_TIME = dt.datetime(year=Today.year, month=Today.month,day=Today.day,hour= 8,minute=30,second=0)
 MID1_TIME = dt.datetime(year=Today.year, month=Today.month,day=Today.day,hour= 11,minute=30,second=0)
 MID2_TIME = dt.datetime(year=Today.year, month=Today.month,day=Today.day,hour= 13,minute=0,second=0)
-END_TIME = dt.datetime(year=Today.year, month=Today.month,day=Today.day,hour= 18,minute=15,second=0)
+END_TIME = dt.datetime(year=Today.year, month=Today.month,day=Today.day,hour= 15,minute=15,second=0)
 PLOT_POINTS = int((END_TIME-START_TIME).seconds/FLUSH_CWSTAT)
 
 # 生成股票持仓需要过滤的代码

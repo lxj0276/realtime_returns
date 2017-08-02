@@ -84,7 +84,9 @@ class Portfolio:
                 if ptscount[obj]>=1:  # 至少两个点以上才能画图
                     axes[obj].set_xlim(xaxis[obj][0], xaxis[obj][ptscount[obj]])
                     axes[obj].legend(('return : %.4f%%' % yaxis[obj][ptscount[obj]],))
-                    axes[obj].plot(xaxis[obj][0:ptscount[obj]], yaxis[obj][0:ptscount[obj]], linewidth=1, color='r')
+                    ptslice = plotpts_interpolation(ptscount[obj],maxptsnum=gv.MAXPTSNUM)
+                    #axes[obj].plot(xaxis[obj][0:ptscount[obj]], yaxis[obj][0:ptscount[obj]], linewidth=1, color='r')
+                    axes[obj].plot(xaxis[obj][ptslice], yaxis[obj][ptslice], linewidth=1, color='r')
                 ptscount[obj] += 1
                 count +=1
             print('t2: %f' % (time.time()-t2))
@@ -200,10 +202,14 @@ class Portfolio:
                 cwdir = os.path.join(cw,''.join(['cwstate_history\cwstate_',gv.YESTERDAY,'.txt']))
             else:
                 cwdir = os.path.join(cw,'cwstate.txt')
-            with open(cwdir,'r') as cwinfo:
-                temp = cwinfo.readlines()
-                contents_temp = [c.strip().split(',') for c in temp]
-                contents[strategy] = np.array([([float(c) for c in t]) for t in contents_temp if len(t)==length])   # 确保足够长，过滤掉意外空行的情况
+            try:  # 防止在复制cwstate时，无法读取额情况，先暂时跳过
+                with open(cwdir,'r') as cwinfo:
+                    temp = cwinfo.readlines()
+                    contents_temp = [c.strip().split(',') for c in temp]
+                    contents[strategy] = np.array([([float(c) for c in t]) for t in contents_temp if len(t)==length])   # 确保足够长，过滤掉意外空行的情况
+            except PermissionError as e:
+                print('warning : reading cwstate failed due to %s ' %e)
+                contents = self._lastcwstate
         return contents
 
     def get_trdstat(self,precwstat,currcwstat,trdtype='T+1'):
@@ -439,8 +445,9 @@ class Portfolio:
             else:
                 holding_code = holding['code'].values
                 #holding_code = holding['code'].tolist()
-                lastprc = newinfo['rt_last'][holding_code].values
-                addval += np.sum( ( lastprc - holding['prc'].values) * holding['num'].values * holding['multi'].values )
+                lastprc = newinfo['rt_last'][holding_code]
+                lastprc = lastprc.fillna(0) # 新股会导致NA
+                addval += np.sum( ( lastprc.values - holding['prc'].values) * holding['num'].values * holding['multi'].values )
         self._addvalue['floated'] = addval
 
     def startplot(self):   # 如需画图，则将该产品 对象 添加到 Portfolio 类画图列表中

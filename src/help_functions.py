@@ -34,5 +34,10 @@ def calc_shape(num):
             shape = (lower,lower)
     return shape
 
-def plotpts_interpolation(maxpos,ptsnum):
-    pass
+def plotpts_interpolation(totptsnum,maxptsnum=1000):
+    """
+    maxptsnum : maximum number the plots will contain
+    totptsnum : current total number of points generated
+    """
+    step = math.ceil(totptsnum/maxptsnum)
+    return slice(0,totptsnum+1,step)
