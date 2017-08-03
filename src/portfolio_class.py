@@ -41,7 +41,7 @@ class Portfolio:
         ptscount = {}
         stopmark = {} # 用于标记画图结束为空仓，最后一个点仍需计算以确保显示的收益率正确
         loopcount = 0
-        while(  gv.START_TIME<= dt.datetime.now()<= gv.END_TIME):
+        while( True ):
             if gv.MID1_TIME < dt.datetime.now() < gv.MID2_TIME:  # 午休时间
                 continue
             ################# PART1 : 更新所有实例 ,暂停画图的也要更新，因为x轴为时间正常更新 #####################
@@ -82,11 +82,9 @@ class Portfolio:
                     xaxis[obj][ptscount[obj]] = dt.datetime.now()
                 # 设置图例，因为每次都是画一张新图
                 if ptscount[obj]>=1:  # 至少两个点以上才能画图
+                    axes[obj].plot(xaxis[obj][0:(ptscount[obj]+1)], yaxis[obj][0:(ptscount[obj]+1)], linewidth=1, color='r')
                     axes[obj].set_xlim(xaxis[obj][0], xaxis[obj][ptscount[obj]])
                     axes[obj].legend(('return : %.4f%%' % yaxis[obj][ptscount[obj]],))
-                    ptslice = plotpts_interpolation(ptscount[obj],maxptsnum=gv.MAXPTSNUM)
-                    #axes[obj].plot(xaxis[obj][0:ptscount[obj]], yaxis[obj][0:ptscount[obj]], linewidth=1, color='r')
-                    axes[obj].plot(xaxis[obj][ptslice], yaxis[obj][ptslice], linewidth=1, color='r')
                 ptscount[obj] += 1
                 count +=1
             print('t2: %f' % (time.time()-t2))
@@ -96,6 +94,16 @@ class Portfolio:
                 plt.pause(gv.FLUSH_CWSTAT)
             loopcount+=1
             print('t3: %f' % (time.time()-t3))
+            ########################################
+            ploting = gv.START_TIME<= dt.datetime.now()<= gv.END_TIME
+            ############## PART4 ： 清除此前的ax.plot 产生的 Line2D实例 ##############################
+            for id in sorted( Portfolio.PLOT_OBJ ):
+                plobj = Portfolio.PLOT_OBJ[id]
+                obj = plobj[0]
+                if len(axes[obj].lines)>0 and ploting:
+                    del axes[obj].lines[0]
+            if not ploting:
+                break
         #################### 画图完成，保存图像 ########################
         print('plot finished')
         figpath = os.path.join(Portfolio.FIGDIR,gv.TODAY+'.png')
