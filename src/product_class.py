@@ -38,7 +38,7 @@ class Products(Portfolio):
         if product_cf.options('blog'):
             print('%s : updating futures holding...' % pofname)
             obj = rawholding_futures(hold_dbdir=self._holddb_dir,pofname=pofname,logdir=dict(product_cf.items('blog')),cwdir=cwstatus_dirs)
-            holding = obj.holdlist_format(prctype='close',date=gv.Yesterday,source='gm')
+            holding = obj.holdlist_format(prctype='settle',date=gv.Yesterday,source='wind')
             holdings = holdings.append(holding,ignore_index=True)
             holdval = obj.get_totval(date=gv.Yesterday,prctype = 'close')
             pofvalue.append(holdval)

@@ -170,6 +170,8 @@ class rawtrading_futures:
             nvolumn = int(open(os.path.join(self._cwdir[strat],'nVolume.txt')).readline()[0].strip())
             multi = self.multi_dict[cttype]
             logdir = os.path.join(self._logdir[strat],'tradelog',''.join(['tradelog_',date.strftime('%Y%m%d'),'.txt']))
+            if not os.path.exists(logdir):
+                continue
             with open(logdir) as fl:
                 line = fl.readline()
                 trdlogs = []

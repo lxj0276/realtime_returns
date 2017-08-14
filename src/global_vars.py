@@ -1,6 +1,6 @@
 import datetime as dt
 from remotewind import w
-
+# from WindPy import w
 
 VERSION = 'Testing'
 UNDL_POOL = {'total':set([])}               # 数据结构 dict： {'total' : 所有标的 set , 'pofname1': {'stocks': set , 'futures': set , ...} , 'pofname2': {...} , ... }
@@ -28,3 +28,4 @@ refound_sz = ['131810','131811','131800','131809','131801','131802','131803','13
 refound_sh = ['204001','204007','204002','204003','204004','204014','204028','204091','204182']
 other_vars = ['131990','888880','SHRQ88','SHXGED','SZRQ88','SZXGED','511990','732855','NEWSTOCK']
 HOLD_FILTER = refound_sz+refound_sh+other_vars
+

@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import sqlite3
 from remotewind import w
+# from WindPy import w
 from gmsdk import md
 
 import global_vars as gv

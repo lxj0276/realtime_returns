@@ -170,10 +170,6 @@ class Portfolio:
         self._addvalue = {'fixed':0 ,'floated':0 }          # 组合收益数值，若在当天出场则为fixed收益，否则为floated
         self._trdlist = {}                                    # 初始化交易单子
         self._handlist = {}                                   # 初始化手动交易单子
-        # for undl in self._trdlst_dir:                              # 清空所有交易单存储所在的文件夹，避免前一日的交易单对今天造成影响
-        #     clear_dir(self._trdlst_dir[undl])
-        # for undl in self._handlst_dir:                        # 清空手动交易单子路径
-        #     clear_dir(self._handlst_dir[undl])
         #-----------------------  交易状态设置 --------------------------------------
         self._noposition = {}
         self._lastcwstate = self.cwstate_snapshot(predaystat=True)       # 初始化交易状态,使用前一日的cwstate交易状态，改文件路径可由cwstate路径推出
@@ -315,6 +311,7 @@ class Portfolio:
                 time.sleep(Portfolio.CHARGE_TIME)
 
     def generate_trdlist(self,strategy):
+        """ 从原始数据（通达信导出、期货交易记录等）生成标准交易单（同时包含in out）"""
         if os.path.exists(self._rawtrd_stk):
             self._stk_trader.trdlist_to_db(textvars=self._cp.get('stocks','text_vars_trade').split(','),tabledir=self._rawtrd_stk,replace=False)
             trdlist = self._stk_trader.trdlist_format(startlinenum=self._stk_trdlines,titles=self._cp.get('stocks','vars_trade').split(','),tscostrate=eval(self._cp.get('stocks','tscost')),outdir=None)
@@ -337,6 +334,7 @@ class Portfolio:
 
     def read_trdlist(self,strategy):
         """ 读取标准格式的交易单子 ， 返回 买入 卖出两个方向的单子 """
+        print(strategy)
         trdlist = {}
         trdlist['in'] = pd.DataFrame()
         trdlist['out'] = pd.DataFrame()
@@ -483,14 +481,3 @@ class Portfolio:
             self.stopplot()
         if gv.UNDL_POOL_INFO:
             self.update_addvalue()
-
-
-
-if __name__=='__main__':
-    a=pd.DataFrame([['a',1,100],['a',2,100],['b',1,200],['b',1,200]],columns=['c','d','e'])
-    print(a)
-    print(a.groupby(by='c')['d','e'].sum())
-    print(a.groupby(by='c')['e'].mean())
-    t= pd.concat([a.groupby(by='c')['d'].sum(),a.groupby(by='c')['e'].mean()],axis=1)
-    t['c']=t.index
-    print(t)
