@@ -237,7 +237,7 @@ class rawholding_futures:
         return result
 
     @classmethod
-    def get_contracts_ours(cls,date=None,cttype = 'IC'):
+    def get_contracts_ours(cls,date=None,cttype = 'IC',preback2=False):
         """ 返回我们当前使用的合约代码，第三个周四就换到下一个月，期间次月合约为None """
         if date is None:
             date = dt.datetime.today()
@@ -246,8 +246,12 @@ class rawholding_futures:
         near1_deliv = w.wss(''.join([real_contracts['near1'],'.CFE']),'lastdelivery_date').Data[0][0]
         timediff = w.tdayscount(date,near1_deliv).Data[0][0]
         if timediff<=2:
-            real_contracts['near1'] = real_contracts['near2']
-            real_contracts['near2'] = None
+            if dt.datetime.now()>dt.datetime(year=date.year, month=date.month,day=date.day,hour= 14,minute=50,second=0):
+                # 换月交易完成后才是次月合约，此前交易中仍需要是正常合约
+                real_contracts['near1'] = real_contracts['near2']
+                real_contracts['near2'] = None
+        if preback2:  # 仍然使用此前的次月合约
+            real_contracts['back2'] = real_contracts['back1']
         return real_contracts
 
     def __init__(self,hold_dbdir,pofname,logdir,cwdir):
@@ -266,6 +270,8 @@ class rawholding_futures:
     def get_holdnum(self,date=None):
         """ 提取期货持有手数，如果未指定日期则默认为当前持有，通过cwstat.txt，如果给定日期则需要在cwstate_history寻找 """
         holdnum = {}
+        if date is None:
+            date = dt.datetime.today()
         for strat in self._logdir:  # 不要遍历self._cwdir,可能包含只做多的策略
             nvoldir = os.path.join(self._cwdir[strat],'nVolume.txt')
             if (date is None) or (date.strftime('%Y%m%d')==dt.datetime.today().strftime('%Y%m%d')):
@@ -288,13 +294,13 @@ class rawholding_futures:
         """ 提取期货账户总金额 ， 可能包含多个策略"""
         if date is None:
             date = dt.datetime.today()
-        totvals = 0   # 用于记录各个策略所提取到的期货账户总资产金额，应采用最晚写的结果，同时过滤掉空结果
-        maxtime = 0
+        totvals = 0   # 用于记录各个策略所提取到的期货账户总资产金额，同时过滤掉空结果
+        maxtime = 0   # 不同期货策略涉及统一账户，应采用最晚写的日志，作为账户总结果
         diffval = 0
         holdnum = self.get_holdnum(date=date)
         for strat in self._logdir:
             acclogdir = os.path.join(self._logdir[strat],'accountlog',''.join(['accountlog_',date.strftime('%Y%m%d'),'.txt']))
-            if prctype=='settle':
+            if prctype=='settle':  # acclog 中提取出为收盘价，计算结算价总金额需要补上差价
                 stratinfo = strat.split('_')
                 cttype = stratinfo[1].upper()
                 montype = stratinfo[0]
@@ -364,3 +370,7 @@ class rawholding_futures:
             holding.to_csv(outdir,header = True,index=False)
         else:
             return holding
+
+
+if __name__=='__main__':
+    print(rawholding_futures.get_contracts_ours())

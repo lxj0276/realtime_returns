@@ -36,11 +36,12 @@ class Products(Portfolio):
         pofvalue.append(holdval)
         ######################### 读取 期货 持仓信息   #########################
         if product_cf.options('blog'):
+            prctype = 'settle'
             print('%s : updating futures holding...' % pofname)
             obj = rawholding_futures(hold_dbdir=self._holddb_dir,pofname=pofname,logdir=dict(product_cf.items('blog')),cwdir=cwstatus_dirs)
-            holding = obj.holdlist_format(prctype='settle',date=gv.Yesterday,source='wind')
+            holding = obj.holdlist_format(prctype=prctype,date=gv.Yesterday,source='wind')
             holdings = holdings.append(holding,ignore_index=True)
-            holdval = obj.get_totval(date=gv.Yesterday,prctype = 'close')
+            holdval = obj.get_totval(date=gv.Yesterday,prctype = prctype)
             pofvalue.append(holdval)
         # ******************** 写入 holdlist ***************************
         holdings.to_csv(holdlst_dir,header=True,index=False)
