@@ -157,10 +157,10 @@ class Portfolio:
         #----------------------- 交易模块变量 -------------------------------------
         self._rawtrd_stk = os.path.join(cfp.get('dirs','raw_trading'),pofname,'_'.join([pofname,'tradings',gv.TODAY+'.csv']))           # 存储从软件端导出的交易记录的文件夹
         self._traddb_dir = os.path.join(cfp.get('dirs','products_db'),pofname,'_'.join([pofname,'trading.db']))     # 存储每日交易记录的数据库
-        self._stk_trader = rawtrading_stocks(pofname=self._pofname,trd_dbdir= self._traddb_dir)
+        self._stk_trader = RawTradingStocks(pofname=self._pofname,trd_dbdir= self._traddb_dir)
         self._stk_trdlines = 0    # 用于记录从股票标准格式中成功读取并使用的行数
         if self._log_dir:
-            self._fut_trader = rawtrading_futures(pofname=self._pofname,trd_dbdir=self._traddb_dir,logdir=self._log_dir,cwdir=self._cwstatus_dirs)
+            self._fut_trader = RawTradingFutures(pofname=self._pofname,trd_dbdir=self._traddb_dir,logdir=self._log_dir,cwdir=self._cwstatus_dirs)
             self._fut_trdlines = {}   # 用于记录从期货标准格式中成功读取并使用的行数，需要分策略
             for strat in self._log_dir:
                 self._fut_trdlines[strat] = 0

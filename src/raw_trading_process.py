@@ -11,7 +11,7 @@ import sqlite3
 from database_assistant.database_assistant import *
 from src.raw_holding_process import *
 
-class rawtrading_stocks:
+class RawTradingStocks:
     @classmethod
     def undl_backfix(cls,undl):
         """ 为标的undl 增加后缀，目前采用万得后缀标准 undl 应为字符串"""
@@ -120,7 +120,7 @@ class rawtrading_stocks:
             trades.columns = ['code','name','num','prc','inout']
             # 剔除非股票持仓和零持仓代码
             trades = trades[~ trades['code'].isin(tofilter)]
-            trades['code'] = trades['code'].map(rawholding_stocks.addfix)
+            trades['code'] = trades['code'].map(RawHoldingStocks.addfix)
             trades = trades[trades['num']>0]
             trades['inout'] = trades['inout'].map(marktrans)
             trades['num'] = trades['num']*trades['inout'].map(reverseval)
@@ -135,7 +135,7 @@ class rawtrading_stocks:
                 return trades
 
 
-class rawtrading_futures:
+class RawTradingFutures:
     def __init__(self,pofname,trd_dbdir,logdir,cwdir):
         self._pofname = pofname
         self._trd_dbdir = trd_dbdir
@@ -166,7 +166,7 @@ class rawtrading_futures:
             stratinfo = strat.split('_')
             cttype = stratinfo[1].upper()
             montype = stratinfo[0]
-            contracts = rawholding_futures.get_contracts_ours(date=date,cttype=cttype)
+            contracts = RawHoldingFutures.get_contracts_ours(date=date,cttype=cttype)
             nvolumn = int(open(os.path.join(self._cwdir[strat],'nVolume.txt')).readline()[0].strip())
             multi = self.multi_dict[cttype]
             logdir = os.path.join(self._logdir[strat],'tradelog',''.join(['tradelog_',date.strftime('%Y%m%d'),'.txt']))
@@ -211,7 +211,7 @@ class rawtrading_futures:
                         inout = 'out'
                         stdtable.append([strat,code,code,num,multi,prc,val,tscost,inout,sn])
                     elif '换仓' in trdlog[2]:
-                        real_contracts = rawholding_futures.get_contracts_real(date=date,cttype=cttype)
+                        real_contracts = RawHoldingFutures.get_contracts_real(date=date,cttype=cttype)
                         code = real_contracts[montype]
                         num = nvolumn
                         val = prc*num*multi
@@ -251,7 +251,7 @@ class rawtrading_futures:
             exeline = ''.join(['SELECT code,name,num,multi,prc,val,tscost,inout FROM ',tablename,' WHERE row_id >',str(startlinenum),stratfilter])
             trades = pd.read_sql(exeline,conn)
             if not trades.empty:
-                trades['code'] = trades['code'].map(rawholding_stocks.addfix)
+                trades['code'] = trades['code'].map(RawHoldingStocks.addfix)
                 trades['tscost'] = -np.abs(trades['val']*trades['tscost'])
             if outdir:
                 trades.to_csv(outdir,header=True,index=False)
@@ -266,7 +266,7 @@ if __name__=='__main__':
     cfp = cp.ConfigParser()
     cfp.read(r'E:\realtime_monitors\realtime_returns\configures\BaiQuan2.ini')
 
-    t=rawtrading_futures(pofname='test',trd_dbdir='test_rawtrading.db',logdir=dict(cfp.items('blog')),cwdir=dict(cfp.items('cwstate')))
+    t=RawTradingFutures(pofname='test',trd_dbdir='test_rawtrading.db',logdir=dict(cfp.items('blog')),cwdir=dict(cfp.items('cwstate')))
     # t.trdlog_to_db(0,date=dt.datetime(year=2017,month=5,day=22))
     # t.trdlog_to_db(0.1,date=dt.datetime(year=2017,month=5,day=24))
     t.trdlog_to_db(0.2,date=dt.datetime(year=2017,month=6,day=15))

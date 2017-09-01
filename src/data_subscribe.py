@@ -7,7 +7,7 @@ import global_vars as gv
 
 from portfolio_class import *
 from new_thread.new_thread import *
-from raw_holding_process import rawholding_stocks
+from raw_holding_process import RawHoldingStocks
 
 
 # def wind2gm(undllst,endmark='.tick'):
@@ -96,7 +96,7 @@ def data_subscribe(source):
                 for col in gv.POOL_COLUMNS:
                     tempdata.append(eval(vars[col]))
                 #UNDL_POOL_INFO[addfix(tick.sec_id)] = tempdata
-                gv.UNDL_POOL_INFO[rawholding_stocks.addfix(tick.sec_id)] = tempdata
+                gv.UNDL_POOL_INFO[RawHoldingStocks.addfix(tick.sec_id)] = tempdata
         ret = md.init(
                 username="18201141877",
                 password="Wqxl7309",

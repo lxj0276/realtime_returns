@@ -14,7 +14,7 @@ from gm_daily.gm_daily import *
 from database_assistant.database_assistant import *
 
 
-class rawholding_stocks:
+class RawHoldingStocks:
 
     @staticmethod
     def addfix(undl,source=gv.SUBSCRIBE_SOURCE,endmark=''):
@@ -143,7 +143,7 @@ class rawholding_stocks:
             holdings = pd.read_sql(exeline,conn)
             holdings.columns = ['code','name','num','prc']  # 因此给的title只能有4个
             # 剔除非股票持仓和零持仓代码 逆回购 理财产品等
-            holdings['code'] = holdings['code'].map(rawholding_stocks.addfix)
+            holdings['code'] = holdings['code'].map(RawHoldingStocks.addfix)
             holdings = holdings[~ holdings['code'].isin(gv.HOLD_FILTER)]
             holdings = holdings[holdings['num']>0]
             if holdings.empty:
@@ -176,7 +176,7 @@ class rawholding_stocks:
         return totval
 
 
-class rawholding_futures:
+class RawHoldingFutures:
     """
     期货持仓信息：所提取的信息应集中于一个期货账户，如果同一产品有其他账户，应在创建一个该类的对象；
     但可以有多个期货策略
@@ -204,7 +204,7 @@ class rawholding_futures:
             else:
                 nextmonth = thismonth+1
                 nextyear = thisyear
-            return rawholding_futures.get_3rd_friday(date=dt.date(year=nextyear,month=nextmonth,day=1))
+            return RawHoldingFutures.get_3rd_friday(date=dt.date(year=nextyear,month=nextmonth,day=1))
 
     @classmethod
     def get_contracts_real(cls,date=None,cttype = 'IC'):
@@ -241,7 +241,7 @@ class rawholding_futures:
         """ 返回我们当前使用的合约代码，第三个周四就换到下一个月，期间次月合约为None """
         if date is None:
             date = dt.datetime.today()
-        real_contracts = rawholding_futures.get_contracts_real(date=date,cttype = cttype)
+        real_contracts = RawHoldingFutures.get_contracts_real(date=date,cttype = cttype)
         w.start()
         near1_deliv = w.wss(''.join([real_contracts['near1'],'.CFE']),'lastdelivery_date').Data[0][0]
         timediff = w.tdayscount(date,near1_deliv).Data[0][0]
@@ -304,7 +304,7 @@ class rawholding_futures:
                 stratinfo = strat.split('_')
                 cttype = stratinfo[1].upper()
                 montype = stratinfo[0]
-                contracts = rawholding_futures.get_contracts_ours(date=date,cttype=cttype)
+                contracts = RawHoldingFutures.get_contracts_ours(date=date,cttype=cttype)
                 num = holdnum[strat]
                 if source=='wind':
                     ######  wind data ########
@@ -349,8 +349,8 @@ class rawholding_futures:
             stratinfo = strat.split('_')
             cttype = stratinfo[1].upper()
             montype = stratinfo[0]
-            name = rawholding_futures.get_contracts_ours(date=date,cttype=cttype)[montype]
-            code = rawholding_stocks.addfix(name)
+            name = RawHoldingFutures.get_contracts_ours(date=date,cttype=cttype)[montype]
+            code = RawHoldingStocks.addfix(name)
             num = holdnum[strat]
             multi = self._multiplier[cttype]
             if source=='wind':
@@ -370,7 +370,3 @@ class rawholding_futures:
             holding.to_csv(outdir,header = True,index=False)
         else:
             return holding
-
-
-if __name__=='__main__':
-    print(rawholding_futures.get_contracts_ours())
