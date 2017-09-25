@@ -14,7 +14,7 @@ import pandas as pd
 import src.global_vars as gv
 from src.data_subscribe import *
 from src.help_functions import *
-from raw_trading_process import *
+from src.raw_trading_process import *
 
 
 class Portfolio:
@@ -137,7 +137,6 @@ class Portfolio:
             del gv.UNDL_POOL[pofname]  # 删除对应产品, 可能仍有部分碎股会存在
 
 
-    #def __init__(self,pofname,pofval_dir,holdlst_dir,trdlst_dir,handlst_dir,cwstatus_dirs):
     def __init__(self,pofname,configdir):
         self._pofname = pofname                               # 产品名称
         # 读取文件路径配置

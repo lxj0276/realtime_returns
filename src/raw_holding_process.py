@@ -8,10 +8,10 @@ from remotewind import w
 # from WindPy import w
 from gmsdk import md
 
-import global_vars as gv
-from date_math.date_math import *
-from gm_daily.gm_daily import *
-from database_assistant.database_assistant import *
+import database_assistant.DatabaseAssistant as da
+import date_math.DateMath as dm
+import gm_daily.GoldenMineDailyAPI as gmdapi
+import src.global_vars as gv
 
 
 class RawHoldingStocks:
@@ -70,7 +70,7 @@ class RawHoldingStocks:
             date = dt.datetime.today()
         if not tablename:
             tablename = self.get_holdname(inputdate=date)
-        with db_assistant(dbdir=self._hold_dbdir) as holddb:
+        with da.DatabaseAssistant(dbdir=self._hold_dbdir) as holddb:
             conn = holddb.connection
             c = conn.cursor()
             with open(tabledir,'r') as fl:
@@ -86,7 +86,7 @@ class RawHoldingStocks:
                                 if currencymark in line:  #寻找汇总标题
                                     stitles = line
                                     currpos = stitles.index(currencymark)
-                                    stitlecheck = db_assistant.gen_table_titles(titles=stitles,varstypes={'TEXT':(currencymark,)})
+                                    stitlecheck = da.DatabaseAssistant.gen_table_titles(titles=stitles,varstypes={'TEXT':(currencymark,)})
                                     stitletrans = stitlecheck['typed_titles']
                                     stitle_empty = stitlecheck['empty_pos']
                                     stitlelen = len(stitletrans)
@@ -106,7 +106,7 @@ class RawHoldingStocks:
                         #寻找正表标题
                         if codemark in line:
                             titles = line
-                            titlecheck = db_assistant.gen_table_titles(titles=titles,varstypes={'TEXT':textvars})
+                            titlecheck = da.DatabaseAssistant.gen_table_titles(titles=titles,varstypes={'TEXT':textvars})
                             titletrans = titlecheck['typed_titles']
                             # title_empty = titlecheck['empty_pos']   # 此处尤其暗藏风险，假设正表数据没有空列
                             newtb = holddb.create_db_table(tablename=tablename,titles=titletrans,replace=replace)
@@ -137,7 +137,7 @@ class RawHoldingStocks:
             date = dt.datetime.today()
         if not tablename:
             tablename = self.get_holdname(inputdate=date)
-        with db_assistant(self._hold_dbdir) as holddb:
+        with da.DatabaseAssistant(self._hold_dbdir) as holddb:
             conn = holddb.connection
             exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename])
             holdings = pd.read_sql(exeline,conn)
@@ -168,7 +168,7 @@ class RawHoldingStocks:
             with open(othersource,'r') as pof:
                 totval = float(pof.readlines()[0].strip())
         else:
-            with db_assistant(dbdir=self._hold_dbdir) as holddb:
+            with da.DatabaseAssistant(dbdir=self._hold_dbdir) as holddb:
                 conn = holddb.connection
                 exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename+'_summary'])
                 values = conn.execute(exeline).fetchall()
@@ -214,7 +214,7 @@ class RawHoldingFutures:
         w.start()
         deliv = w.wss(''.join([cttype,date.strftime('%y%m'),'.CFE']),'lastdelivery_date').Data[0][0]
         season_mons = np.array([3,6,9,12])
-        dmobj = date_math(date)
+        dmobj = dm.DateMath(date)
         if date.strftime('%Y%m%d')>deliv.strftime('%Y%m%d'):  # 已经换月
             near1 = dmobj.month_add(months=1)
             near2 = dmobj.month_add(months=2)
@@ -315,7 +315,7 @@ class RawHoldingFutures:
                 elif source=='gm':
                     ##### 掘金 data ##########
                     ct = '.'.join(['CFFEX',contracts[montype]])
-                    gm_obj = gm_daily('18201141877','Wqxl7309')
+                    gm_obj = gmdapi.GoldenMineDailyAPI('18201141877','Wqxl7309')
                     data = gm_obj.gmwsd(code=ct,valstr='settle_price,close',startdate=date,enddate=date)
                     diffval += (data.loc[0,'settle_price']-data.loc[0,'close'])*num*self._multiplier[cttype]
                 ###################

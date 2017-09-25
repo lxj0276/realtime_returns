@@ -8,7 +8,7 @@ import pandas as pd
 import sqlite3
 
 #from global_vars import *
-from database_assistant.database_assistant import *
+import database_assistant.DatabaseAssistant as da
 from src.raw_holding_process import *
 
 class RawTradingStocks:
@@ -48,7 +48,7 @@ class RawTradingStocks:
             date = dt.date.today()
         if not tablename:
             tablename = self.get_trdname(inputdate=date)
-        with db_assistant(dbdir=self._trd_dbdir) as trddb:
+        with da.DatabaseAssistant(dbdir=self._trd_dbdir) as trddb:
             conn = trddb.connection
             c = conn.cursor()
             with open(tabledir,'r') as fl:
@@ -62,7 +62,7 @@ class RawTradingStocks:
                         if codemark in line:  #寻找正表标题
                             titles = line
                             codepos = titles.index(codemark) + 1
-                            titlecheck = db_assistant.gen_table_titles(titles=titles,varstypes={'TEXT':textvars})
+                            titlecheck = da.DatabaseAssistant.gen_table_titles(titles=titles,varstypes={'TEXT':textvars})
                             titletrans = ['row_id INTEGER']+titlecheck['typed_titles']
                             titlelen = len(titletrans)
                             # title_empty = titlecheck['empty_pos']   # 此处尤其暗藏风险，假设正表数据没有空列
@@ -113,7 +113,7 @@ class RawTradingStocks:
                 return tscostrate+1/1000  # 卖出会有印花税
             else:
                 return -tscostrate
-        with db_assistant(dbdir=self._trd_dbdir) as trddb:
+        with da.DatabaseAssistant(dbdir=self._trd_dbdir) as trddb:
             conn = trddb.connection
             exeline = ''.join(['SELECT ',','.join(titles),' FROM ',tablename,' WHERE row_id >',str(startlinenum)])
             trades = pd.read_sql(exeline,conn)
@@ -227,7 +227,7 @@ class RawTradingFutures:
                     line = fl.readline()
             fulllog = fulllog.append(pd.DataFrame(trdlogs,columns=names),ignore_index=True)
         ############ 写入 数据库 ################
-        with db_assistant(dbdir=self._trd_dbdir) as trddb:
+        with da.DatabaseAssistant(dbdir=self._trd_dbdir) as trddb:
             conn = trddb.connection
             fulllog.to_sql(name=trdlogname,con=conn,if_exists='replace')
             stdtable = pd.DataFrame(stdtable,columns=['strat','code','name','num','multi','prc','val','tscost','inout','sn'])
@@ -246,7 +246,7 @@ class RawTradingFutures:
             stratfilter = ''
         else:
             stratfilter = ''.join([' AND strat =\'',strat,'\''])
-        with db_assistant(dbdir=self._trd_dbdir) as trddb:
+        with da.DatabaseAssistant(dbdir=self._trd_dbdir) as trddb:
             conn = trddb.connection
             exeline = ''.join(['SELECT code,name,num,multi,prc,val,tscost,inout FROM ',tablename,' WHERE row_id >',str(startlinenum),stratfilter])
             trades = pd.read_sql(exeline,conn)

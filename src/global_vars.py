@@ -26,6 +26,8 @@ PLOT_POINTS = int((END_TIME-START_TIME).seconds/FLUSH_CWSTAT)
 # 生成股票持仓需要过滤的代码
 refound_sz = ['131810','131811','131800','131809','131801','131802','131803','131805','131806']
 refound_sh = ['204001','204007','204002','204003','204004','204014','204028','204091','204182']
-other_vars = ['131990','888880','SHRQ88','SHXGED','SZRQ88','SZXGED','511990','732855','NEWSTOCK']
-HOLD_FILTER = refound_sz+refound_sh+other_vars
+other_vars = ['131990','888880','SHRQ88','SHXGED','SZRQ88','SZXGED','511990','732855']
+selfdef_vars = ['NEWSTOCK','999997','999998','999999']
+HOLD_FILTER = refound_sz+refound_sh+other_vars+selfdef_vars
+
 
